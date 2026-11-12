@@ -3,218 +3,807 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Weather</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Current Weather</title>
   <style>
+    /* ------------------------------------------------------------------
+       Design tokens
+       ------------------------------------------------------------------ */
     :root {
-      color-scheme: light;
-      font-family: system-ui, sans-serif;
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+      --color-bg: #eef4f8;
+      --color-surface: #ffffff;
+      --color-surface-sunken: #f3f7fa;
+      --color-text: #17212b;
+      --color-muted: #52606d;
+      --color-border: #c4d1db;
+      --color-primary: #1769aa;
+      --color-primary-hover: #12578f;
+      --color-on-primary: #ffffff;
+      --color-danger: #b42318;
+      --color-danger-bg: #fef3f2;
+      --color-focus: #1769aa;
+      --shadow-card: 0 0.25rem 1.25rem rgb(23 33 43 / 0.10);
+
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.5rem;
+      --space-6: 2.5rem;
+
+      --radius-sm: 0.4rem;
+      --radius-md: 0.75rem;
+      --radius-pill: 999px;
+
+      --motion-fast: 150ms;
+      --motion-base: 250ms;
+      --ease: cubic-bezier(0.2, 0, 0, 1);
     }
 
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-bg: #0f1720;
+        --color-surface: #18232e;
+        --color-surface-sunken: #121c25;
+        --color-text: #e8eef3;
+        --color-muted: #9fb0bf;
+        --color-border: #2e3f4e;
+        --color-primary: #5eb1f0;
+        --color-primary-hover: #82c3f5;
+        --color-on-primary: #08202f;
+        --color-danger: #ff9a8f;
+        --color-danger-bg: #3a1a17;
+        --color-focus: #82c3f5;
+        --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       Base
+       ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; }
+
     body {
-      background: #eef4f8;
-      color: #17212b;
       margin: 0;
       min-height: 100vh;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
     }
 
     main {
-      box-sizing: border-box;
       margin: 0 auto;
-      max-width: 32rem;
-      padding: 3rem 1rem;
+      max-width: 40rem;
+      padding: var(--space-6) var(--space-4);
+      display: grid;
+      gap: var(--space-5);
     }
 
-    form,
-    #result {
-      background: white;
-      border-radius: 0.75rem;
-      box-shadow: 0 0.25rem 1rem #17212b1a;
-      padding: 1.25rem;
+    h1 {
+      margin: 0;
+      font-size: clamp(1.75rem, 5vw, 2.25rem);
+      line-height: 1.15;
     }
 
+    .subtitle {
+      margin: var(--space-1) 0 0;
+      color: var(--color-muted);
+    }
+
+    .card {
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+      padding: var(--space-5);
+    }
+
+    :focus-visible {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 2px;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    /* ------------------------------------------------------------------
+       Header + unit toggle
+       ------------------------------------------------------------------ */
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      padding: 2px;
+      background: var(--color-surface);
+    }
+
+    .segmented label {
+      position: relative;
+      cursor: pointer;
+    }
+
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .segmented span {
+      display: block;
+      padding: var(--space-1) var(--space-4);
+      border-radius: var(--radius-pill);
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      transition: background var(--motion-fast) var(--ease),
+                  color var(--motion-fast) var(--ease);
+    }
+
+    .segmented input:checked + span {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+    }
+
+    .segmented input:focus-visible + span {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 2px;
+    }
+
+    /* ------------------------------------------------------------------
+       Form
+       ------------------------------------------------------------------ */
     form {
       display: grid;
-      gap: 0.75rem;
+      gap: var(--space-4);
     }
 
-    label {
+    .fields {
       display: grid;
-      gap: 0.25rem;
+      gap: var(--space-4);
+    }
+
+    @media (min-width: 36rem) {
+      .fields { grid-template-columns: 1fr 1fr; }
+    }
+
+    .field {
+      display: grid;
+      gap: var(--space-1);
+      align-content: start;
+    }
+
+    .field label {
       font-weight: 600;
     }
 
-    input,
-    button {
-      border: 1px solid #9aabb8;
-      border-radius: 0.4rem;
+    .field .hint {
+      color: var(--color-muted);
+      font-size: 0.85rem;
+    }
+
+    .field .error {
+      color: var(--color-danger);
+      font-size: 0.85rem;
+      min-height: 1.25rem;
+      margin: 0;
+    }
+
+    input[type="number"] {
+      width: 100%;
       font: inherit;
-      padding: 0.6rem;
+      color: inherit;
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem var(--space-3);
+      min-height: 2.75rem;
     }
 
-    button {
-      background: #1769aa;
-      border-color: #1769aa;
-      color: white;
+    input[aria-invalid="true"] {
+      border-color: var(--color-danger);
+      background: var(--color-danger-bg);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+
+    .btn {
+      font: inherit;
+      font-weight: 700;
+      min-height: 2.75rem;
+      padding: 0 var(--space-5);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-primary);
+      background: var(--color-primary);
+      color: var(--color-on-primary);
       cursor: pointer;
+      transition: background var(--motion-fast) var(--ease);
+    }
+
+    .btn:hover:not(:disabled) { background: var(--color-primary-hover); }
+
+    .btn.secondary {
+      background: transparent;
+      color: var(--color-primary);
+    }
+
+    .btn.secondary:hover:not(:disabled) {
+      background: var(--color-surface-sunken);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    @media (max-width: 35.99rem) {
+      .actions .btn { flex: 1 1 100%; }
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .presets p {
+      margin: 0 var(--space-2) 0 0;
+      color: var(--color-muted);
+      font-size: 0.9rem;
+    }
+
+    .chip {
+      font: inherit;
+      font-size: 0.9rem;
+      color: var(--color-text);
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      padding: var(--space-1) var(--space-3);
+      min-height: 2rem;
+      cursor: pointer;
+      transition: border-color var(--motion-fast) var(--ease);
+    }
+
+    .chip:hover:not(:disabled) { border-color: var(--color-primary); }
+    .chip:disabled { opacity: 0.6; cursor: progress; }
+
+    /* ------------------------------------------------------------------
+       Result panel (one element, four states via data-state)
+       empty | loading | error | ready
+       ------------------------------------------------------------------ */
+    #panel { padding: 0; overflow: hidden; }
+
+    .state { display: none; }
+    #panel[data-state="empty"]   .state-empty,
+    #panel[data-state="loading"] .state-loading,
+    #panel[data-state="error"]   .state-error,
+    #panel[data-state="ready"]   .state-ready { display: block; }
+
+    .state-empty,
+    .state-error {
+      padding: var(--space-5);
+    }
+
+    .state-empty {
+      text-align: center;
+      color: var(--color-muted);
+    }
+
+    .state-empty strong {
+      display: block;
+      color: var(--color-text);
+      margin-bottom: var(--space-1);
+    }
+
+    .state-error {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
+
+    .state-error p { margin: 0 0 var(--space-3); font-weight: 600; }
+
+    /* Ready */
+    .hero {
+      padding: var(--space-5);
+      color: #fff;
+      background: linear-gradient(135deg, var(--tone-a), var(--tone-b));
+      transition: background var(--motion-base) var(--ease);
+    }
+
+    #panel[data-tone="freezing"] { --tone-a: #174a86; --tone-b: #2370ad; }
+    #panel[data-tone="cool"]     { --tone-a: #17606e; --tone-b: #237b82; }
+    #panel[data-tone="mild"]     { --tone-a: #28603a; --tone-b: #357a47; }
+    #panel[data-tone="warm"]     { --tone-a: #8f4a00; --tone-b: #a65f06; }
+    #panel[data-tone="hot"]      { --tone-a: #a12a1a; --tone-b: #c0392b; }
+
+    .hero-label {
+      margin: 0;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .temperature {
+      margin: var(--space-1) 0 0;
+      font-size: clamp(3.5rem, 16vw, 5.5rem);
       font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
 
-    button.secondary {
-      background: white;
-      color: #1769aa;
+    .temperature .unit {
+      font-size: 0.4em;
+      font-weight: 600;
+      vertical-align: top;
+      margin-left: 0.1em;
     }
 
-    button:disabled {
-      cursor: wait;
-      opacity: 0.7;
-    }
-
-    #message {
-      min-height: 1.5rem;
-    }
-
-    #result {
+    .details {
       display: grid;
-      gap: 0.5rem;
+      margin: 0;
     }
 
-    .value {
-      font-size: 1.5rem;
-      font-weight: 700;
+    .details > div {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-3) var(--space-5);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .details > div:first-child { border-top: 0; }
+    .details dt { color: var(--color-muted); }
+    .details dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Loading skeleton */
+    .state-loading { padding: var(--space-5); display: grid; gap: var(--space-3); }
+
+    .skeleton {
+      height: 1rem;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(90deg,
+        var(--color-surface-sunken), var(--color-border), var(--color-surface-sunken));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+    }
+
+    .skeleton.big   { height: 4rem; width: 60%; }
+    .skeleton.short { width: 40%; }
+
+    @keyframes shimmer {
+      from { background-position: 200% 0; }
+      to   { background-position: -200% 0; }
+    }
+
+    footer {
+      color: var(--color-muted);
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    footer a { color: inherit; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>Current Weather</h1>
-    <form id="weather-form">
-      <label>
-        Latitude
-        <input id="latitude" name="latitude" type="number" step="any"
-               min="-90" max="90" placeholder="40.71" required>
-      </label>
-      <label>
-        Longitude
-        <input id="longitude" name="longitude" type="number" step="any"
-               min="-180" max="180" placeholder="-74.01" required>
-      </label>
-      <button class="secondary" id="location-button" type="button">
-        Use my location
-      </button>
-      <button type="submit">Get weather</button>
-    </form>
+    <header class="page-header">
+      <div>
+        <h1>Current Weather</h1>
+        <p class="subtitle">Enter coordinates or use your location.</p>
+      </div>
 
-    <p id="message" role="status" aria-live="polite"></p>
+      <div class="segmented" role="radiogroup" aria-label="Units">
+        <label>
+          <input type="radio" name="units" value="imperial" checked>
+          <span>°F · mph</span>
+        </label>
+        <label>
+          <input type="radio" name="units" value="metric">
+          <span>°C · km/h</span>
+        </label>
+      </div>
+    </header>
 
-    <section id="result" aria-live="polite" hidden>
-      <div>Temperature: <span class="value" id="temperature"></span> °F</div>
-      <div>Wind: <span class="value" id="wind"></span> mph</div>
+    <section class="card" aria-label="Location">
+      <form id="weather-form" novalidate>
+        <div class="fields">
+          <div class="field">
+            <label for="latitude">Latitude</label>
+            <input id="latitude" name="latitude" type="number" step="any"
+                   inputmode="decimal" placeholder="40.71" required
+                   aria-describedby="latitude-hint latitude-error">
+            <span class="hint" id="latitude-hint">-90 to 90</span>
+            <p class="error" id="latitude-error"></p>
+          </div>
+          <div class="field">
+            <label for="longitude">Longitude</label>
+            <input id="longitude" name="longitude" type="number" step="any"
+                   inputmode="decimal" placeholder="-74.01" required
+                   aria-describedby="longitude-hint longitude-error">
+            <span class="hint" id="longitude-hint">-180 to 180</span>
+            <p class="error" id="longitude-error"></p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="submit-button" type="submit">Get weather</button>
+          <button class="btn secondary" id="location-button" type="button">
+            Use my location
+          </button>
+        </div>
+
+        <div class="presets" role="group" aria-label="Example locations">
+          <p>Try:</p>
+          <button class="chip" type="button" data-lat="40.71" data-lon="-74.01">New York</button>
+          <button class="chip" type="button" data-lat="51.51" data-lon="-0.13">London</button>
+          <button class="chip" type="button" data-lat="35.68" data-lon="139.69">Tokyo</button>
+          <button class="chip" type="button" data-lat="-33.87" data-lon="151.21">Sydney</button>
+          <button class="chip" type="button" data-lat="-1.29" data-lon="36.82">Nairobi</button>
+        </div>
+      </form>
     </section>
+
+    <p class="visually-hidden" id="status" role="status" aria-live="polite"></p>
+
+    <section class="card" id="panel" data-state="empty" aria-live="polite" aria-busy="false">
+      <div class="state state-empty">
+        <strong>No weather loaded yet</strong>
+        Pick a city above, type coordinates, or use your location.
+      </div>
+
+      <div class="state state-loading" aria-hidden="true">
+        <div class="skeleton big"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton short"></div>
+      </div>
+
+      <div class="state state-error" role="alert">
+        <p id="error-message"></p>
+        <button class="btn secondary" id="retry-button" type="button">Try again</button>
+      </div>
+
+      <div class="state state-ready">
+        <div class="hero">
+          <p class="hero-label">Temperature</p>
+          <p class="temperature">
+            <span id="temperature">--</span><span class="unit" id="temperature-unit"></span>
+          </p>
+        </div>
+        <dl class="details">
+          <div><dt>Wind</dt><dd><span id="wind">--</span> <span id="wind-unit"></span></dd></div>
+          <div><dt>Coordinates</dt><dd id="coordinates">--</dd></div>
+          <div><dt>Location source</dt><dd id="location-source">--</dd></div>
+          <div><dt>Data from</dt><dd id="data-source">--</dd></div>
+          <div><dt>Updated</dt><dd id="updated">--</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <footer>
+      Weather by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
+      IP-based location is approximate; enter coordinates when accuracy matters.
+    </footer>
   </main>
 
   <script>
-    const form = document.querySelector("#weather-form");
-    const button = form.querySelector('button[type="submit"]');
-    const locationButton = document.querySelector("#location-button");
-    const latitudeInput = document.querySelector("#latitude");
-    const longitudeInput = document.querySelector("#longitude");
-    const message = document.querySelector("#message");
-    const result = document.querySelector("#result");
+    (() => {
+      "use strict";
 
-    const loadWeatherForLocation = () => {
-      message.textContent = "Loading weather...";
-      form.requestSubmit();
-    };
+      const $ = (selector) => document.querySelector(selector);
 
-    const useIpLocation = async () => {
-      message.textContent = "Estimating location from your IP address...";
+      const form = $("#weather-form");
+      const latitudeInput = $("#latitude");
+      const longitudeInput = $("#longitude");
+      const submitButton = $("#submit-button");
+      const locationButton = $("#location-button");
+      const retryButton = $("#retry-button");
+      const chips = document.querySelectorAll(".chip");
+      const unitRadios = document.querySelectorAll('input[name="units"]');
+      const panel = $("#panel");
+      const status = $("#status");
 
-      try {
-        const response = await fetch("/location");
+      const REQUEST_TIMEOUT_MS = 10000;
+      const UNIT_STORAGE_KEY = "weather-units";
+
+      let lastData = null;          // Raw API payload (imperial units)
+      let lastFetchedAt = null;     // Date of the last successful fetch
+      let locationSource = "Manual entry";
+      let activeRequest = null;     // AbortController for in-flight weather call
+      let busy = false;
+
+      /* ---------- Units ---------- */
+
+      const readStoredUnits = () => {
+        try { return localStorage.getItem(UNIT_STORAGE_KEY); } catch { return null; }
+      };
+
+      const storeUnits = (value) => {
+        try { localStorage.setItem(UNIT_STORAGE_KEY, value); } catch { /* optional */ }
+      };
+
+      const currentUnits = () =>
+        document.querySelector('input[name="units"]:checked').value;
+
+      const numberFormat = (digits) =>
+        new Intl.NumberFormat(undefined, {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        });
+
+      const toneForFahrenheit = (f) => {
+        if (f <= 32) return "freezing";
+        if (f <= 55) return "cool";
+        if (f <= 75) return "mild";
+        if (f <= 90) return "warm";
+        return "hot";
+      };
+
+      /* ---------- UI state ---------- */
+
+      const setState = (state) => {
+        panel.dataset.state = state;
+        panel.setAttribute("aria-busy", String(state === "loading"));
+      };
+
+      const announce = (text) => { status.textContent = text; };
+
+      const setBusy = (value) => {
+        busy = value;
+        submitButton.disabled = value;
+        locationButton.disabled = value;
+        retryButton.disabled = value;
+        chips.forEach((chip) => { chip.disabled = value; });
+      };
+
+      const showError = (text) => {
+        $("#error-message").textContent = text;
+        setState("error");
+        announce(text);
+      };
+
+      const render = () => {
+        if (!lastData) return;
+
+        const fahrenheit = lastData.current.temperature_2m;
+        const mph = lastData.current.wind_speed_10m;
+        const metric = currentUnits() === "metric";
+
+        const temperature = metric ? (fahrenheit - 32) * 5 / 9 : fahrenheit;
+        const wind = metric ? mph * 1.609344 : mph;
+
+        $("#temperature").textContent = numberFormat(0).format(temperature);
+        $("#temperature-unit").textContent = metric ? "°C" : "°F";
+        $("#wind").textContent = numberFormat(1).format(wind);
+        $("#wind-unit").textContent = metric ? "km/h" : "mph";
+        $("#coordinates").textContent =
+          `${numberFormat(2).format(lastData.latitude)}, ` +
+          `${numberFormat(2).format(lastData.longitude)}`;
+        $("#location-source").textContent = locationSource;
+        $("#data-source").textContent = lastData.source || "Open-Meteo";
+        $("#updated").textContent = lastFetchedAt.toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        });
+
+        panel.dataset.tone = toneForFahrenheit(fahrenheit);
+      };
+
+      /* ---------- Validation ---------- */
+
+      const validateField = (input, min, max, label) => {
+        const errorEl = $(`#${input.id}-error`);
+        const raw = input.value.trim();
+        let message = "";
+
+        if (raw === "" || Number.isNaN(Number(raw))) {
+          message = `${label} is required and must be a number.`;
+        } else if (Number(raw) < min || Number(raw) > max) {
+          message = `${label} must be between ${min} and ${max}.`;
+        }
+
+        errorEl.textContent = message;
+        input.setAttribute("aria-invalid", message ? "true" : "false");
+        return message === "";
+      };
+
+      const validateForm = () => {
+        const latOk = validateField(latitudeInput, -90, 90, "Latitude");
+        const lonOk = validateField(longitudeInput, -180, 180, "Longitude");
+        if (!latOk) latitudeInput.focus();
+        else if (!lonOk) longitudeInput.focus();
+        return latOk && lonOk;
+      };
+
+      /* ---------- Network ---------- */
+
+      const fetchJson = async (url, signal) => {
+        const response = await fetch(url, { signal });
         const contentType = response.headers.get("content-type") || "";
 
         if (!contentType.includes("application/json")) {
-          throw new Error("Location service returned an unexpected response.");
+          throw new Error(`Unexpected response from the server (${response.status}).`);
         }
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Unable to estimate your location.");
+          throw new Error(data.error || `Request failed (${response.status}).`);
         }
+        return data;
+      };
 
-        latitudeInput.value = data.latitude;
-        longitudeInput.value = data.longitude;
-        loadWeatherForLocation();
-      } catch (error) {
-        locationButton.disabled = false;
-        message.textContent =
-          `${error.message} Enter coordinates manually.`;
-      }
-    };
+      const loadWeather = async () => {
+        if (!validateForm()) return;
 
-    const useBrowserLocation = () => {
-      if (!navigator.geolocation) {
-        void useIpLocation();
-        return;
-      }
+        if (activeRequest) activeRequest.abort();
+        const controller = new AbortController();
+        activeRequest = controller;
+        const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-      message.textContent = "Estimating your location...";
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          latitudeInput.value = position.coords.latitude.toFixed(5);
-          longitudeInput.value = position.coords.longitude.toFixed(5);
-          loadWeatherForLocation();
-        },
-        () => {
-          void useIpLocation();
-        },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
-      );
-    };
+        setBusy(true);
+        setState("loading");
+        announce("Loading weather…");
 
-    locationButton.addEventListener("click", () => {
-      locationButton.disabled = true;
-      useBrowserLocation();
-    });
+        try {
+          const query = new URLSearchParams({
+            latitude: latitudeInput.value.trim(),
+            longitude: longitudeInput.value.trim(),
+          });
+          const data = await fetchJson(`/weather?${query}`, controller.signal);
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const latitude = document.querySelector("#latitude").value;
-      const longitude = document.querySelector("#longitude").value;
+          if (!data.current ||
+              typeof data.current.temperature_2m !== "number" ||
+              typeof data.current.wind_speed_10m !== "number") {
+            throw new Error("The weather service returned incomplete data.");
+          }
 
-      button.disabled = true;
-      message.textContent = "Loading...";
-      result.hidden = true;
-
-      try {
-        const query = new URLSearchParams({ latitude, longitude });
-        const response = await fetch(`/weather?${query}`);
-        const contentType = response.headers.get("content-type") || "";
-
-        if (!contentType.includes("application/json")) {
-          throw new Error(
-            `Weather service returned an unexpected response (${response.status}).`
+          lastData = data;
+          lastFetchedAt = new Date();
+          render();
+          setState("ready");
+          announce(
+            `Weather loaded: ${$("#temperature").textContent}${$("#temperature-unit").textContent}, ` +
+            `wind ${$("#wind").textContent} ${$("#wind-unit").textContent}.`
           );
+        } catch (error) {
+          if (error.name === "AbortError") {
+            if (activeRequest !== controller) return; // superseded by a newer request
+            showError("The request timed out. Check your connection and try again.");
+          } else {
+            showError(error.message || "Unable to load weather.");
+          }
+        } finally {
+          clearTimeout(timer);
+          if (activeRequest === controller) {
+            activeRequest = null;
+            setBusy(false);
+          }
+        }
+      };
+
+      /* ---------- Location ---------- */
+
+      const applyCoordinates = (latitude, longitude, source) => {
+        latitudeInput.value = latitude;
+        longitudeInput.value = longitude;
+        locationSource = source;
+        loadWeather();
+      };
+
+      const useIpLocation = async () => {
+        announce("Estimating location from your IP address…");
+        try {
+          const data = await fetchJson("/location");
+          applyCoordinates(
+            Number(data.latitude).toFixed(4),
+            Number(data.longitude).toFixed(4),
+            "IP address (approximate)"
+          );
+        } catch (error) {
+          setBusy(false);
+          showError(`${error.message} Enter coordinates manually.`);
+        }
+      };
+
+      const useMyLocation = () => {
+        setBusy(true);
+        setState("loading");
+
+        if (!navigator.geolocation) {
+          useIpLocation();
+          return;
         }
 
-        const data = await response.json();
+        announce("Requesting your location…");
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            applyCoordinates(
+              position.coords.latitude.toFixed(5),
+              position.coords.longitude.toFixed(5),
+              "Browser location"
+            );
+          },
+          () => { useIpLocation(); },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+        );
+      };
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load weather.");
-        }
+      /* ---------- Events ---------- */
 
-        document.querySelector("#temperature").textContent =
-          data.current.temperature_2m;
-        document.querySelector("#wind").textContent =
-          data.current.wind_speed_10m;
-        message.textContent = "";
-        result.hidden = false;
-      } catch (error) {
-        message.textContent = error.message;
-      } finally {
-        button.disabled = false;
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (busy) return;
+        locationSource = "Manual entry";
+        loadWeather();
+      });
+
+      locationButton.addEventListener("click", () => {
+        if (!busy) useMyLocation();
+      });
+
+      retryButton.addEventListener("click", () => {
+        if (!busy) loadWeather();
+      });
+
+      chips.forEach((chip) => {
+        chip.addEventListener("click", () => {
+          if (busy) return;
+          applyCoordinates(chip.dataset.lat, chip.dataset.lon, `Example: ${chip.textContent.trim()}`);
+        });
+      });
+
+      [latitudeInput, longitudeInput].forEach((input) => {
+        input.addEventListener("input", () => {
+          input.setAttribute("aria-invalid", "false");
+          $(`#${input.id}-error`).textContent = "";
+        });
+      });
+
+      unitRadios.forEach((radio) => {
+        radio.addEventListener("change", () => {
+          storeUnits(currentUnits());
+          render();
+        });
+      });
+
+      /* ---------- Init ---------- */
+
+      const storedUnits = readStoredUnits();
+      if (storedUnits === "metric" || storedUnits === "imperial") {
+        document.querySelector(`input[name="units"][value="${storedUnits}"]`).checked = true;
       }
-    });
+    })();
   </script>
 </body>
 </html>
