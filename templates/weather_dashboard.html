@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Current Weather</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+  <title>Website Lookup</title>
   <style>
     /* ------------------------------------------------------------------
        Design tokens
@@ -78,7 +79,7 @@
 
     main {
       margin: 0 auto;
-      max-width: 40rem;
+      max-width: 64rem;
       padding: var(--space-6) var(--space-4);
       display: grid;
       gap: var(--space-5);
@@ -96,10 +97,27 @@
     }
 
     .card {
+      width: 100%;
+      max-width: 40rem;
+      margin-inline: auto;
       background: var(--color-surface);
       border-radius: var(--radius-md);
       box-shadow: var(--shadow-card);
       padding: var(--space-5);
+    }
+
+    #panel {
+      max-width: 64rem;
+    }
+
+    .search-card {
+      max-width: 52rem;
+    }
+
+    .section-heading {
+      margin: 0 0 var(--space-4);
+      font-size: 1.15rem;
+      line-height: 1.25;
     }
 
     :focus-visible {
@@ -120,10 +138,9 @@
        Header + unit toggle
        ------------------------------------------------------------------ */
     .page-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
       gap: var(--space-4);
     }
 
@@ -132,6 +149,7 @@
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-3);
+      justify-self: end;
     }
 
     .segmented {
@@ -177,6 +195,80 @@
     .segmented input:focus-visible + span {
       outline: 3px solid var(--color-focus);
       outline-offset: 2px;
+    }
+
+    .search-form {
+      position: relative;
+    }
+
+    .search-row {
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      color: inherit;
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem var(--space-3);
+      min-height: 2.75rem;
+    }
+
+    .search-results {
+      position: absolute;
+      top: calc(100% + var(--space-2));
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: grid;
+      gap: var(--space-1);
+      max-height: min(24rem, 50vh);
+      overflow-y: auto;
+      margin: 0;
+      padding: var(--space-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-card);
+    }
+
+    .search-results[hidden] { display: none; }
+
+    .search-result {
+      display: grid;
+      gap: 0;
+      width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .search-result:hover,
+    .search-result:focus-visible {
+      background: var(--color-surface-sunken);
+    }
+
+    .search-result small {
+      color: var(--color-muted);
+    }
+
+    @media (max-width: 35.99rem) {
+      .header-controls {
+        margin-top: var(--space-4);
+        justify-content: space-between;
+        justify-self: stretch;
+      }
+
+      .search-row { flex-direction: column; }
     }
 
     /* ------------------------------------------------------------------
@@ -269,6 +361,18 @@
       background: var(--color-surface-sunken);
     }
 
+    #location-button {
+      border-color: transparent;
+      opacity: 0.9;
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    #location-button:hover:not(:disabled) {
+      background: transparent;
+      opacity: 1;
+    }
+
     .btn:disabled {
       opacity: 0.6;
       cursor: progress;
@@ -350,9 +454,13 @@
 
     /* Ready */
     .hero {
+      position: relative;
+      overflow: hidden;
       padding: var(--space-5);
       color: #fff;
-      background: linear-gradient(135deg, var(--tone-a), var(--tone-b));
+      background:
+        radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.22), transparent 28%),
+        linear-gradient(135deg, var(--tone-a), var(--tone-b));
       transition: background var(--motion-base) var(--ease);
     }
 
@@ -361,6 +469,34 @@
     #panel[data-tone="mild"]     { --tone-a: #28603a; --tone-b: #357a47; }
     #panel[data-tone="warm"]     { --tone-a: #8f4a00; --tone-b: #a65f06; }
     #panel[data-tone="hot"]      { --tone-a: #a12a1a; --tone-b: #c0392b; }
+    #panel[data-condition="clear"] .hero {
+      background:
+        radial-gradient(circle at 82% 18%, rgb(255 232 130 / 0.7), transparent 16%),
+        linear-gradient(135deg, #1769aa, #54a9d8);
+    }
+    #panel[data-condition="cloudy"] .hero {
+      background:
+        radial-gradient(circle at 78% 24%, rgb(255 255 255 / 0.18), transparent 24%),
+        linear-gradient(135deg, #526b85, #8da4b8);
+    }
+    #panel[data-condition="rain"] .hero {
+      background:
+        radial-gradient(circle at 80% 16%, rgb(116 188 255 / 0.28), transparent 25%),
+        linear-gradient(135deg, #164e78, #315c9b);
+    }
+    #panel[data-condition="snow"] .hero {
+      background:
+        radial-gradient(circle at 84% 20%, rgb(255 255 255 / 0.55), transparent 24%),
+        linear-gradient(135deg, #477b9e, #8fc0d6);
+    }
+    #panel[data-condition="storm"] .hero {
+      background:
+        radial-gradient(circle at 78% 18%, rgb(210 188 255 / 0.3), transparent 24%),
+        linear-gradient(135deg, #26254d, #4d3e79);
+    }
+    #panel[data-condition="fog"] .hero {
+      background: linear-gradient(135deg, #697783, #a4afb5);
+    }
 
     .hero-label {
       margin: 0;
@@ -384,6 +520,7 @@
 
     .details {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       margin: 0;
     }
 
@@ -395,9 +532,90 @@
       border-top: 1px solid var(--color-border);
     }
 
-    .details > div:first-child { border-top: 0; }
+    .details > div:nth-child(-n + 2) { border-top: 0; }
+    .details > div:nth-child(even) { border-left: 1px solid var(--color-border); }
+    .details > .updated { grid-column: 1 / -1; border-left: 0; }
     .details dt { color: var(--color-muted); }
     .details dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .location-summary {
+      padding: var(--space-5) var(--space-5) var(--space-3);
+    }
+
+    .location-name {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .location-coordinates {
+      margin: var(--space-1) 0 0;
+      color: var(--color-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .condition {
+      margin: var(--space-2) 0 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .forecast-section {
+      padding: var(--space-4) var(--space-5) var(--space-5);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .forecast-heading {
+      margin: 0 0 var(--space-3);
+      font-size: 1rem;
+    }
+
+    .forecast {
+      display: flex;
+      gap: var(--space-2);
+      overflow-x: auto;
+      padding-bottom: var(--space-2);
+      scroll-snap-type: x proximity;
+    }
+
+    .forecast-card {
+      flex: 0 0 4.75rem;
+      display: grid;
+      justify-items: center;
+      gap: var(--space-1);
+      padding: var(--space-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-sunken);
+      scroll-snap-align: start;
+    }
+
+    @media (min-width: 36rem) {
+      .forecast {
+        overflow-x: hidden;
+      }
+
+      .forecast-card {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+    }
+
+    .forecast-time,
+    .forecast-temperature {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .forecast-symbol {
+      font-size: 1.35rem;
+      line-height: 1.3;
+    }
+
+    .forecast-condition {
+      color: var(--color-muted);
+      font-size: 0.7rem;
+      text-align: center;
+    }
 
     /* Loading skeleton */
     /* Appears only if loading takes longer than 300ms, so fast responses
@@ -593,9 +811,9 @@
 
   <main>
     <header class="page-header">
-      <div>
-        <h1>Current Weather</h1>
-        <p class="subtitle">Enter coordinates or use your location.</p>
+      <div class="page-title">
+        <h1>Website Lookup</h1>
+        <p class="subtitle">Search for a city or use your location.</p>
       </div>
 
       <div class="header-controls">
@@ -617,42 +835,19 @@
       </div>
     </header>
 
-    <section class="card" aria-label="Location">
-      <form id="weather-form" novalidate>
-        <div class="fields">
-          <div class="field">
-            <label for="latitude">Latitude</label>
-            <input id="latitude" name="latitude" type="number" step="any"
-                   inputmode="decimal" placeholder="40.71" required
-                   aria-describedby="latitude-hint latitude-error">
-            <span class="hint" id="latitude-hint">-90 to 90</span>
-            <p class="error" id="latitude-error"></p>
-          </div>
-          <div class="field">
-            <label for="longitude">Longitude</label>
-            <input id="longitude" name="longitude" type="number" step="any"
-                   inputmode="decimal" placeholder="-74.01" required
-                   aria-describedby="longitude-hint longitude-error">
-            <span class="hint" id="longitude-hint">-180 to 180</span>
-            <p class="error" id="longitude-error"></p>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button class="btn" id="submit-button" type="submit">Get weather</button>
+    <section class="card search-card" aria-label="Location search">
+      <form class="search-form" id="weather-form" novalidate>
+        <label class="visually-hidden" for="location-search">Search for a city or region</label>
+        <div class="search-row">
+          <input class="search-input" id="location-search" name="location"
+                 type="search" autocomplete="off" placeholder="Enter location…"
+                 aria-controls="search-results" aria-expanded="false"
+                 aria-autocomplete="list">
           <button class="btn secondary" id="location-button" type="button">
             Use my location
           </button>
         </div>
-
-        <div class="presets" role="group" aria-label="Example locations">
-          <p>Try:</p>
-          <button class="chip" type="button" data-lat="40.71" data-lon="-74.01">New York</button>
-          <button class="chip" type="button" data-lat="51.51" data-lon="-0.13">London</button>
-          <button class="chip" type="button" data-lat="35.68" data-lon="139.69">Tokyo</button>
-          <button class="chip" type="button" data-lat="-33.87" data-lon="151.21">Sydney</button>
-          <button class="chip" type="button" data-lat="-1.29" data-lon="36.82">Nairobi</button>
-        </div>
+        <div class="search-results" id="search-results" role="listbox" hidden></div>
       </form>
     </section>
 
@@ -664,12 +859,12 @@
 
       <div class="state state-empty">
         <strong>No weather loaded yet</strong>
-        Pick a city above, type coordinates, or use your location.
+        Search for a city above or use your location.
       </div>
 
       <div class="state state-locating">
         <strong>Finding your location…</strong>
-        If your browser asks for permission, choose Allow. Or enter coordinates above.
+        If your browser asks for permission, choose Allow. New York is used if permission is denied.
       </div>
 
       <div class="state state-loading" aria-hidden="true">
@@ -684,26 +879,35 @@
       </div>
 
       <div class="state state-ready">
+        <div class="location-summary">
+          <h3 class="location-name" id="location-name">Selected location</h3>
+          <p class="location-coordinates" id="coordinates">--</p>
+        </div>
         <div class="hero">
-          <p class="hero-label">Temperature</p>
+          <p class="hero-label">Current conditions</p>
+          <p class="condition" id="condition">--</p>
           <p class="temperature">
             <span id="temperature">--</span><span class="unit" id="temperature-unit"></span>
           </p>
         </div>
         <dl class="details">
           <div><dt>Wind</dt><dd><span id="wind">--</span> <span id="wind-unit"></span></dd></div>
-          <div><dt>Coordinates</dt><dd id="coordinates">--</dd></div>
-          <div><dt>Location source</dt><dd id="location-source">--</dd></div>
-          <div><dt>Data from</dt><dd id="data-source">--</dd></div>
-          <div><dt>Updated</dt><dd id="updated">--</dd></div>
+          <div><dt>Precipitation</dt><dd><span id="precipitation">--</span> mm</dd></div>
+          <div><dt>Humidity</dt><dd><span id="humidity">--</span>%</dd></div>
+          <div><dt>UV Index</dt><dd id="uv-index">--</dd></div>
+          <div class="updated"><dt>Updated</dt><dd id="updated">--</dd></div>
         </dl>
+        <div class="forecast-section">
+          <h3 class="forecast-heading">Hourly forecast</h3>
+          <div class="forecast" id="forecast" aria-label="Hourly weather forecast"></div>
+        </div>
       </div>
     </section>
   </main>
 
   <footer>
-    Weather by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
-    IP-based location is approximate; enter coordinates when accuracy matters.
+    Website Lookup by <a href="https://github.com/pistashios1" rel="noopener">pistashios1</a>.
+    Weather data by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
   </footer>
 
   <script>
@@ -713,23 +917,29 @@
       const $ = (selector) => document.querySelector(selector);
 
       const form = $("#weather-form");
-      const latitudeInput = $("#latitude");
-      const longitudeInput = $("#longitude");
-      const submitButton = $("#submit-button");
+      const searchInput = $("#location-search");
+      const searchResults = $("#search-results");
       const locationButton = $("#location-button");
       const retryButton = $("#retry-button");
-      const chips = document.querySelectorAll(".chip");
       const unitRadios = document.querySelectorAll('input[name="units"]');
       const panel = $("#panel");
       const status = $("#status");
 
       const REQUEST_TIMEOUT_MS = 10000;
-      const PERMISSION_WAIT_MS = 15000;
+      const PERMISSION_WAIT_MS = 8000;
       const UNIT_STORAGE_KEY = "weather-units";
+      const SEARCH_AFFINITY_KEY = "weather-search-affinity";
+      const DEFAULT_LOCATION = {
+        latitude: 40.7128,
+        longitude: -74.0060,
+        name: "New York",
+      };
 
       let lastData = null;          // Raw API payload (imperial units)
       let lastFetchedAt = null;     // Date of the last successful fetch
-      let locationSource = "Manual entry";
+      let selectedLocation = null;
+      let searchTimer = null;
+      let searchController = null;
       let activeRequest = null;     // AbortController for in-flight weather call
       let busy = false;
 
@@ -760,6 +970,78 @@
         return "hot";
       };
 
+      const currentMetricDefinitions = [
+        { id: "wind", value: (current, metric) => metric ? current.wind_speed_10m * 1.609344 : current.wind_speed_10m, unit: (metric) => metric ? "km/h" : "mph", digits: 1 },
+        { id: "precipitation", value: (current) => Math.max(0, current.rain), unit: () => "mm", digits: 1 },
+        { id: "humidity", value: (current) => Math.max(0, current.relative_humidity_2m), unit: () => "%", digits: 0 },
+        { id: "uv-index", value: (current) => Math.max(0, current.uv_index), unit: () => "", digits: 1 },
+      ];
+
+      const readSearchAffinity = () => {
+        try {
+          const value = JSON.parse(localStorage.getItem(SEARCH_AFFINITY_KEY) || "[]");
+          return Array.isArray(value) ? value.filter((item) => typeof item === "string").slice(0, 10) : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const rememberSearchAffinity = (name) => {
+        try {
+          const values = [name, ...readSearchAffinity().filter((item) => item !== name)].slice(0, 10);
+          localStorage.setItem(SEARCH_AFFINITY_KEY, JSON.stringify(values));
+        } catch { /* optional */ }
+      };
+
+      const conditionForCode = (code) => {
+        const conditions = [
+          [(value) => value === 0, "Clear", "☀️", "clear"],
+          [(value) => value === 1, "Mainly clear", "🌤️", "clear"],
+          [(value) => value === 2, "Partly cloudy", "⛅", "cloudy"],
+          [(value) => value === 3, "Overcast", "☁️", "cloudy"],
+          [(value) => value === 45 || value === 48, "Foggy", "🌫️", "fog"],
+          [(value) => value >= 51 && value <= 57, "Drizzle", "🌦️", "rain"],
+          [(value) => (value >= 61 && value <= 67) || (value >= 80 && value <= 82), "Rain", "🌧️", "rain"],
+          [(value) => (value >= 71 && value <= 77) || (value >= 85 && value <= 86), "Snow", "🌨️", "snow"],
+          [(value) => value >= 95 && value <= 99, "Thunderstorm", "⛈️", "storm"],
+        ];
+        const match = conditions.find(([matches]) => matches(code));
+        return match
+          ? { label: match[1], icon: match[2], key: match[3] }
+          : { label: "Weather", icon: "🌡️", key: "unknown" };
+      };
+
+      const formatForecastTime = (value) => {
+        const date = new Date(value);
+        return Number.isNaN(date.valueOf())
+          ? "--"
+          : date.toLocaleTimeString(undefined, { hour: "numeric" });
+      };
+
+      const renderForecast = () => {
+        const forecast = $("#forecast");
+        const hourly = lastData.hourly;
+        const metric = currentUnits() === "metric";
+        if (!hourly || !Array.isArray(hourly.time) || !hourly.time.length) {
+          forecast.innerHTML = '<p class="forecast-condition">Hourly forecast unavailable.</p>';
+          return;
+        }
+        forecast.innerHTML = hourly.time.slice(0, 12).map((time, index) => {
+          const condition = conditionForCode(Number(hourly.weather_code[index]));
+          const temperature = hourly.temperature_2m[index];
+          const formattedTemperature = metric
+            ? (temperature - 32) * 5 / 9
+            : temperature;
+          return `
+            <div class="forecast-card">
+              <span class="forecast-time">${index === 0 ? "Now" : formatForecastTime(time)}</span>
+              <span class="forecast-symbol" aria-hidden="true">${condition.icon}</span>
+              <span class="forecast-temperature">${numberFormat(0).format(formattedTemperature)}°</span>
+              <span class="forecast-condition">${condition.label}</span>
+            </div>`;
+        }).join("");
+      };
+
       /* ---------- UI state ---------- */
 
       const setState = (state) => {
@@ -771,10 +1053,9 @@
 
       const setBusy = (value) => {
         busy = value;
-        submitButton.disabled = value;
+        searchInput.disabled = value;
         locationButton.disabled = value;
         retryButton.disabled = value;
-        chips.forEach((chip) => { chip.disabled = value; });
       };
 
       const showError = (text) => {
@@ -787,53 +1068,35 @@
         if (!lastData) return;
 
         const fahrenheit = lastData.current.temperature_2m;
-        const mph = lastData.current.wind_speed_10m;
         const metric = currentUnits() === "metric";
 
         const temperature = metric ? (fahrenheit - 32) * 5 / 9 : fahrenheit;
-        const wind = metric ? mph * 1.609344 : mph;
 
         $("#temperature").textContent = numberFormat(0).format(temperature);
         $("#temperature-unit").textContent = metric ? "°C" : "°F";
-        $("#wind").textContent = numberFormat(1).format(wind);
-        $("#wind-unit").textContent = metric ? "km/h" : "mph";
+        currentMetricDefinitions.forEach((definition) => {
+          const element = document.getElementById(definition.id);
+          const value = definition.value(lastData.current, metric);
+          element.textContent = numberFormat(definition.digits).format(value);
+          const unit = document.getElementById(`${definition.id}-unit`);
+          if (unit) unit.textContent = definition.unit(metric);
+        });
+        const currentCondition = conditionForCode(Number(lastData.current.weather_code));
+        $("#location-name").textContent = selectedLocation.name;
+        $("#condition").textContent = `${currentCondition.icon} ${currentCondition.label}`;
+        const latitudeDirection = lastData.latitude >= 0 ? "N" : "S";
+        const longitudeDirection = lastData.longitude >= 0 ? "E" : "W";
         $("#coordinates").textContent =
-          `${numberFormat(2).format(lastData.latitude)}, ` +
-          `${numberFormat(2).format(lastData.longitude)}`;
-        $("#location-source").textContent = locationSource;
-        $("#data-source").textContent = lastData.source || "Open-Meteo";
+          `Coordinates: ${numberFormat(2).format(Math.abs(lastData.latitude))}° ${latitudeDirection}, ` +
+          `${numberFormat(2).format(Math.abs(lastData.longitude))}° ${longitudeDirection}`;
         $("#updated").textContent = lastFetchedAt.toLocaleTimeString(undefined, {
           hour: "numeric",
           minute: "2-digit",
         });
 
         panel.dataset.tone = toneForFahrenheit(fahrenheit);
-      };
-
-      /* ---------- Validation ---------- */
-
-      const validateField = (input, min, max, label) => {
-        const errorEl = $(`#${input.id}-error`);
-        const raw = input.value.trim();
-        let message = "";
-
-        if (raw === "" || Number.isNaN(Number(raw))) {
-          message = `${label} is required and must be a number.`;
-        } else if (Number(raw) < min || Number(raw) > max) {
-          message = `${label} must be between ${min} and ${max}.`;
-        }
-
-        errorEl.textContent = message;
-        input.setAttribute("aria-invalid", message ? "true" : "false");
-        return message === "";
-      };
-
-      const validateForm = () => {
-        const latOk = validateField(latitudeInput, -90, 90, "Latitude");
-        const lonOk = validateField(longitudeInput, -180, 180, "Longitude");
-        if (!latOk) latitudeInput.focus();
-        else if (!lonOk) longitudeInput.focus();
-        return latOk && lonOk;
+        panel.dataset.condition = currentCondition.key;
+        renderForecast();
       };
 
       /* ---------- Network ---------- */
@@ -848,13 +1111,18 @@
 
         const data = await response.json();
         if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfter = response.headers.get("Retry-After");
+            const wait = retryAfter ? ` Try again in ${retryAfter} seconds.` : "";
+            throw new Error(`Too many requests.${wait}`);
+          }
           throw new Error(data.error || `Request failed (${response.status}).`);
         }
         return data;
       };
 
       const loadWeather = async () => {
-        if (!validateForm()) {
+        if (!selectedLocation) {
           setBusy(false);
           setState(lastData ? "ready" : "empty");
           return;
@@ -871,14 +1139,18 @@
 
         try {
           const query = new URLSearchParams({
-            latitude: latitudeInput.value.trim(),
-            longitude: longitudeInput.value.trim(),
+            latitude: selectedLocation.latitude,
+            longitude: selectedLocation.longitude,
           });
           const data = await fetchJson(`/weather?${query}`, controller.signal);
 
           if (!data.current ||
               typeof data.current.temperature_2m !== "number" ||
-              typeof data.current.wind_speed_10m !== "number") {
+              typeof data.current.wind_speed_10m !== "number" ||
+              typeof data.current.weather_code !== "number" ||
+              typeof data.current.rain !== "number" ||
+              typeof data.current.relative_humidity_2m !== "number" ||
+              typeof data.current.uv_index !== "number") {
             throw new Error("The weather service returned incomplete data.");
           }
 
@@ -908,33 +1180,27 @@
 
       /* ---------- Location ---------- */
 
-      const applyCoordinates = (latitude, longitude, source) => {
-        latitudeInput.value = latitude;
-        longitudeInput.value = longitude;
-        locationSource = source;
+      const applyLocation = (location, updateSearch = true) => {
+        selectedLocation = location;
+        if (updateSearch) searchInput.value = location.name;
         loadWeather();
       };
 
-      const useIpLocation = async () => {
-        announce("Estimating location from your IP address…");
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const useDefaultLocation = () => applyLocation(DEFAULT_LOCATION, false);
+
+      const resolveBrowserLocation = async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        let name = "Your location";
         try {
-          const data = await fetchJson("/location", controller.signal);
-          applyCoordinates(
-            Number(data.latitude).toFixed(4),
-            Number(data.longitude).toFixed(4),
-            "IP address (approximate)"
+          const data = await fetchJson(
+            `/reverse-location?latitude=${latitude}&longitude=${longitude}`
           );
-        } catch (error) {
-          setBusy(false);
-          const reason = error.name === "AbortError"
-            ? "Location lookup timed out."
-            : error.message;
-          showError(`${reason} Enter coordinates manually.`);
-        } finally {
-          clearTimeout(timer);
+          name = data.name || name;
+        } catch {
+          // Weather remains available even if reverse geocoding is unavailable.
         }
+        applyLocation({ latitude, longitude, name }, false);
       };
 
       const useMyLocation = () => {
@@ -942,14 +1208,14 @@
         setState("locating");
 
         if (!navigator.geolocation) {
-          useIpLocation();
+          useDefaultLocation();
           return;
         }
 
         announce("Requesting your location…");
 
         // The browser's own timeout only starts after permission is granted, so
-        // an unanswered prompt would wait forever. Fall back to IP lookup instead.
+        // an unanswered prompt would wait forever. Fall back to New York instead.
         let settled = false;
         const settle = (handler) => (...args) => {
           if (settled) return;
@@ -958,19 +1224,15 @@
           handler(...args);
         };
         const promptTimer = setTimeout(
-          settle(() => { useIpLocation(); }),
+          settle(() => { useDefaultLocation(); }),
           PERMISSION_WAIT_MS
         );
 
         navigator.geolocation.getCurrentPosition(
           settle((position) => {
-            applyCoordinates(
-              position.coords.latitude.toFixed(5),
-              position.coords.longitude.toFixed(5),
-              "Browser location"
-            );
+            resolveBrowserLocation(position);
           }),
-          settle(() => { useIpLocation(); }),
+          settle(() => { useDefaultLocation(); }),
           { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
         );
       };
@@ -979,9 +1241,73 @@
 
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        if (busy) return;
-        locationSource = "Manual entry";
-        loadWeather();
+        searchLocations();
+      });
+
+      const renderSearchResults = (results) => {
+        searchResults.replaceChildren();
+        results.forEach((result, index) => {
+          const button = document.createElement("button");
+          button.className = "search-result";
+          button.type = "button";
+          button.role = "option";
+          button.dataset.index = String(index);
+
+          const name = document.createElement("span");
+          name.textContent = result.name;
+          const context = document.createElement("small");
+          context.textContent = result.context || "Location";
+          button.append(name, context);
+          searchResults.append(button);
+        });
+        searchResults.hidden = results.length === 0;
+        searchInput.setAttribute("aria-expanded", String(results.length > 0));
+        searchResults.querySelectorAll(".search-result").forEach((button) => {
+          button.addEventListener("click", () => {
+            rememberSearchAffinity(results[Number(button.dataset.index)].name);
+            applyLocation(results[Number(button.dataset.index)]);
+            searchResults.hidden = true;
+            searchInput.setAttribute("aria-expanded", "false");
+          });
+        });
+      };
+
+      const searchLocations = async () => {
+        const query = searchInput.value.trim();
+        if (query.length < 1) {
+          renderSearchResults([]);
+          return;
+        }
+        if (searchController) searchController.abort();
+        searchController = new AbortController();
+        searchResults.replaceChildren();
+        const loading = document.createElement("p");
+        loading.className = "forecast-condition";
+        loading.textContent = "Searching locations…";
+        searchResults.append(loading);
+        searchResults.hidden = false;
+        searchInput.setAttribute("aria-expanded", "true");
+        try {
+          const origin = selectedLocation || DEFAULT_LOCATION;
+          const params = new URLSearchParams({
+            q: query,
+            latitude: origin.latitude,
+            longitude: origin.longitude,
+            affinity: readSearchAffinity().join(","),
+          });
+          const data = await fetchJson(
+            `/search?${params}`,
+            searchController.signal
+          );
+          renderSearchResults(data.results || []);
+        } catch (error) {
+          if (error.name !== "AbortError") renderSearchResults([]);
+        }
+      };
+
+      searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(searchLocations, 250);
       });
 
       locationButton.addEventListener("click", () => {
@@ -990,20 +1316,6 @@
 
       retryButton.addEventListener("click", () => {
         if (!busy) loadWeather();
-      });
-
-      chips.forEach((chip) => {
-        chip.addEventListener("click", () => {
-          if (busy) return;
-          applyCoordinates(chip.dataset.lat, chip.dataset.lon, `Example: ${chip.textContent.trim()}`);
-        });
-      });
-
-      [latitudeInput, longitudeInput].forEach((input) => {
-        input.addEventListener("input", () => {
-          input.setAttribute("aria-invalid", "false");
-          $(`#${input.id}-error`).textContent = "";
-        });
       });
 
       unitRadios.forEach((radio) => {
@@ -1019,6 +1331,8 @@
       if (storedUnits === "metric" || storedUnits === "imperial") {
         document.querySelector(`input[name="units"][value="${storedUnits}"]`).checked = true;
       }
+
+      useMyLocation();
 
       /* ---------- Background map animation (pause / play) ---------- */
 
