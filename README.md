@@ -14,17 +14,27 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The API starts on `http://localhost:5000`. Try the health check:
+The API starts on plain HTTP at `http://localhost:5000`. Try the health check:
 
 ```powershell
-curl http://localhost:5000/healthz
+curl.exe http://localhost:5000/healthz
 ```
 
 Then request current conditions:
 
 ```powershell
-curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
+curl.exe "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
 ```
+
+Open `http://localhost:5000/` in a browser to use the weather form. Select **Use my location** to let the browser estimate your coordinates and
+load the weather automatically. The browser will ask for location permission.
+If browser location is unavailable or denied, the app falls back to an
+approximate IP-based location through the `/location` endpoint. IP-based
+coordinates are less precise; enter coordinates manually when accuracy matters.
+
+Port `5000` is not configured for TLS. Use `http://`, not `https://`; sending
+an HTTPS request to this port produces a `400 Bad request version` message
+because Flask receives TLS handshake bytes where it expects an HTTP request.
 
 ### Run with Docker
 
@@ -105,8 +115,8 @@ The API requests temperature in Fahrenheit and wind speed in miles per hour.
 
 ## Configuration
 
-The development server listens on `0.0.0.0:5000` by default. Override the
-port with the `PORT` environment variable:
+The development server listens for plain HTTP on `0.0.0.0:5000` by default.
+Override the port with the `PORT` environment variable:
 
 ```powershell
 $env:PORT = "8000"
@@ -114,7 +124,8 @@ python app.py
 ```
 
 The Docker image always publishes port `5000` and uses Gunicorn to serve
-`app:app`.
+`app:app` over HTTP. Put TLS termination in a reverse proxy if HTTPS is
+required.
 
 ## Development
 

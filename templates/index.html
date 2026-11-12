@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weather</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, sans-serif;
+    }
+
+    body {
+      background: #eef4f8;
+      color: #17212b;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    main {
+      box-sizing: border-box;
+      margin: 0 auto;
+      max-width: 32rem;
+      padding: 3rem 1rem;
+    }
+
+    form,
+    #result {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: 0 0.25rem 1rem #17212b1a;
+      padding: 1.25rem;
+    }
+
+    form {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    label {
+      display: grid;
+      gap: 0.25rem;
+      font-weight: 600;
+    }
+
+    input,
+    button {
+      border: 1px solid #9aabb8;
+      border-radius: 0.4rem;
+      font: inherit;
+      padding: 0.6rem;
+    }
+
+    button {
+      background: #1769aa;
+      border-color: #1769aa;
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button.secondary {
+      background: white;
+      color: #1769aa;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    #message {
+      min-height: 1.5rem;
+    }
+
+    #result {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Current Weather</h1>
+    <form id="weather-form">
+      <label>
+        Latitude
+        <input id="latitude" name="latitude" type="number" step="any"
+               min="-90" max="90" placeholder="40.71" required>
+      </label>
+      <label>
+        Longitude
+        <input id="longitude" name="longitude" type="number" step="any"
+               min="-180" max="180" placeholder="-74.01" required>
+      </label>
+      <button class="secondary" id="location-button" type="button">
+        Use my location
+      </button>
+      <button type="submit">Get weather</button>
+    </form>
+
+    <p id="message" role="status" aria-live="polite"></p>
+
+    <section id="result" aria-live="polite" hidden>
+      <div>Temperature: <span class="value" id="temperature"></span> °F</div>
+      <div>Wind: <span class="value" id="wind"></span> mph</div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.querySelector("#weather-form");
+    const button = form.querySelector('button[type="submit"]');
+    const locationButton = document.querySelector("#location-button");
+    const latitudeInput = document.querySelector("#latitude");
+    const longitudeInput = document.querySelector("#longitude");
+    const message = document.querySelector("#message");
+    const result = document.querySelector("#result");
+
+    const loadWeatherForLocation = () => {
+      message.textContent = "Loading weather...";
+      form.requestSubmit();
+    };
+
+    const useIpLocation = async () => {
+      message.textContent = "Estimating location from your IP address...";
+
+      try {
+        const response = await fetch("/location");
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          throw new Error("Location service returned an unexpected response.");
+        }
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to estimate your location.");
+        }
+
+        latitudeInput.value = data.latitude;
+        longitudeInput.value = data.longitude;
+        loadWeatherForLocation();
+      } catch (error) {
+        locationButton.disabled = false;
+        message.textContent =
+          `${error.message} Enter coordinates manually.`;
+      }
+    };
+
+    const useBrowserLocation = () => {
+      if (!navigator.geolocation) {
+        void useIpLocation();
+        return;
+      }
+
+      message.textContent = "Estimating your location...";
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          latitudeInput.value = position.coords.latitude.toFixed(5);
+          longitudeInput.value = position.coords.longitude.toFixed(5);
+          loadWeatherForLocation();
+        },
+        () => {
+          void useIpLocation();
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      );
+    };
+
+    locationButton.addEventListener("click", () => {
+      locationButton.disabled = true;
+      useBrowserLocation();
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const latitude = document.querySelector("#latitude").value;
+      const longitude = document.querySelector("#longitude").value;
+
+      button.disabled = true;
+      message.textContent = "Loading...";
+      result.hidden = true;
+
+      try {
+        const query = new URLSearchParams({ latitude, longitude });
+        const response = await fetch(`/weather?${query}`);
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          throw new Error(
+            `Weather service returned an unexpected response (${response.status}).`
+          );
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to load weather.");
+        }
+
+        document.querySelector("#temperature").textContent =
+          data.current.temperature_2m;
+        document.querySelector("#wind").textContent =
+          data.current.wind_speed_10m;
+        message.textContent = "";
+        result.hidden = false;
+      } catch (error) {
+        message.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

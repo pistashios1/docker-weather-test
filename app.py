@@ -1,16 +1,39 @@
 import os
 
 import requests
-from flask import Flask, request
+from flask import Flask, render_template, request
 
 from output import error_response, health_response, weather_response
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+IP_LOCATION_URL = "https://ipapi.co/json/"
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
+
+    @app.get("/")
+    def index():
+        return render_template("index.html")
+
+    @app.get("/location")
+    def location():
+        try:
+            response = requests.get(IP_LOCATION_URL, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            latitude = float(data["latitude"])
+            longitude = float(data["longitude"])
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            app.logger.exception("IP location request failed")
+            return error_response("location service unavailable", 502)
+
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            app.logger.error("IP location service returned invalid coordinates")
+            return error_response("Location service returned invalid coordinates", 502)
+
+        return {"latitude": latitude, "longitude": longitude, "source": "IP location"}
 
     @app.get("/healthz")
     def healthz():
@@ -42,11 +65,11 @@ def create_app() -> Flask:
                 timeout=5,
             )
             response.raise_for_status()
-        except requests.RequestException:
+            data = response.json()
+        except (requests.RequestException, ValueError):
             app.logger.exception("Open-Meteo request failed")
             return error_response("weather service unavailable", 502)
 
-        data = response.json()
         return weather_response(data)
 
     return app

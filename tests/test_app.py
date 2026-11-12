@@ -5,6 +5,37 @@ import requests
 from app import app
 
 
+def test_index_serves_weather_frontend():
+    result = app.test_client().get("/")
+
+    assert result.status_code == 200
+    assert b"Current Weather" in result.data
+
+
+def test_location_returns_ip_coordinates():
+    response = Mock()
+    response.json.return_value = {"latitude": "40.71", "longitude": "-74.01"}
+
+    with patch("app.requests.get", return_value=response) as get:
+        result = app.test_client().get("/location")
+
+    assert result.status_code == 200
+    assert result.get_json() == {
+        "latitude": 40.71,
+        "longitude": -74.01,
+        "source": "IP location",
+    }
+    get.assert_called_once_with("https://ipapi.co/json/", timeout=5)
+
+
+def test_location_reports_lookup_failure():
+    with patch("app.requests.get", side_effect=requests.RequestException):
+        result = app.test_client().get("/location")
+
+    assert result.status_code == 502
+    assert result.get_json() == {"error": "location service unavailable"}
+
+
 def test_weather_returns_current_conditions():
     response = Mock()
     response.json.return_value = {
@@ -30,6 +61,17 @@ def test_weather_rejects_out_of_range_coordinates():
 
 def test_weather_reports_upstream_failure():
     with patch("app.requests.get", side_effect=requests.RequestException):
+        result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
+
+    assert result.status_code == 502
+    assert result.get_json() == {"error": "weather service unavailable"}
+
+
+def test_weather_reports_invalid_upstream_json():
+    response = Mock()
+    response.json.side_effect = ValueError
+
+    with patch("app.requests.get", return_value=response):
         result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 502
