@@ -1,7 +1,9 @@
 import os
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, request
+
+from output import error_response, health_response, weather_response
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
@@ -12,7 +14,7 @@ def create_app() -> Flask:
 
     @app.get("/healthz")
     def healthz():
-        return jsonify({"status": "ok"})
+        return health_response()
 
     @app.get("/weather")
     def weather():
@@ -20,9 +22,12 @@ def create_app() -> Flask:
         longitude = request.args.get("longitude", type=float)
 
         if latitude is None or longitude is None:
-            return jsonify({"error": "latitude and longitude are required numbers"}), 400
+            return error_response("latitude and longitude are required numbers", 400)
         if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-            return jsonify({"error": "latitude must be between -90 and 90 and longitude between -180 and 180"}), 400
+            return error_response(
+                "latitude must be between -90 and 90 and longitude between -180 and 180",
+                400,
+            )
 
         try:
             response = requests.get(
@@ -39,17 +44,10 @@ def create_app() -> Flask:
             response.raise_for_status()
         except requests.RequestException:
             app.logger.exception("Open-Meteo request failed")
-            return jsonify({"error": "weather service unavailable"}), 502
+            return error_response("weather service unavailable", 502)
 
         data = response.json()
-        return jsonify(
-            {
-                "latitude": data["latitude"],
-                "longitude": data["longitude"],
-                "current": data["current"],
-                "source": "Open-Meteo",
-            }
-        )
+        return weather_response(data)
 
     return app
 
