@@ -299,22 +299,26 @@
     #panel { padding: 0; overflow: hidden; }
 
     .state { display: none; }
-    #panel[data-state="empty"]   .state-empty,
-    #panel[data-state="loading"] .state-loading,
+    #panel[data-state="empty"]    .state-empty,
+    #panel[data-state="locating"] .state-locating,
+    #panel[data-state="loading"]  .state-loading,
     #panel[data-state="error"]   .state-error,
     #panel[data-state="ready"]   .state-ready { display: block; }
 
     .state-empty,
+    .state-locating,
     .state-error {
       padding: var(--space-5);
     }
 
-    .state-empty {
+    .state-empty,
+    .state-locating {
       text-align: center;
       color: var(--color-muted);
     }
 
-    .state-empty strong {
+    .state-empty strong,
+    .state-locating strong {
       display: block;
       color: var(--color-text);
       margin-bottom: var(--space-1);
@@ -380,23 +384,35 @@
     .details dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
     /* Loading skeleton */
-    .state-loading { padding: var(--space-5); display: grid; gap: var(--space-3); }
+    /* Appears only if loading takes longer than 300ms, so fast responses
+       never flash a skeleton, and uses a slow low-contrast pulse. */
+    .state-loading {
+      padding: var(--space-5);
+      gap: var(--space-3);
+      animation: skeleton-appear 0.2s ease-out 300ms backwards;
+    }
+
+    #panel[data-state="loading"] .state-loading { display: grid; }
 
     .skeleton {
       height: 1rem;
       border-radius: var(--radius-sm);
-      background: linear-gradient(90deg,
-        var(--color-surface-sunken), var(--color-border), var(--color-surface-sunken));
-      background-size: 200% 100%;
-      animation: shimmer 1.2s linear infinite;
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border);
+      animation: skeleton-pulse 2s ease-in-out infinite;
     }
 
     .skeleton.big   { height: 4rem; width: 60%; }
     .skeleton.short { width: 40%; }
 
-    @keyframes shimmer {
-      from { background-position: 200% 0; }
-      to   { background-position: -200% 0; }
+    @keyframes skeleton-appear {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.55; }
     }
 
     footer {
@@ -483,6 +499,11 @@
         Pick a city above, type coordinates, or use your location.
       </div>
 
+      <div class="state state-locating">
+        <strong>Finding your location…</strong>
+        If your browser asks for permission, choose Allow. Or enter coordinates above.
+      </div>
+
       <div class="state state-loading" aria-hidden="true">
         <div class="skeleton big"></div>
         <div class="skeleton"></div>
@@ -535,6 +556,7 @@
       const status = $("#status");
 
       const REQUEST_TIMEOUT_MS = 10000;
+      const PERMISSION_WAIT_MS = 15000;
       const UNIT_STORAGE_KEY = "weather-units";
 
       let lastData = null;          // Raw API payload (imperial units)
@@ -664,7 +686,11 @@
       };
 
       const loadWeather = async () => {
-        if (!validateForm()) return;
+        if (!validateForm()) {
+          setBusy(false);
+          setState(lastData ? "ready" : "empty");
+          return;
+        }
 
         if (activeRequest) activeRequest.abort();
         const controller = new AbortController();
@@ -723,8 +749,10 @@
 
       const useIpLocation = async () => {
         announce("Estimating location from your IP address…");
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
         try {
-          const data = await fetchJson("/location");
+          const data = await fetchJson("/location", controller.signal);
           applyCoordinates(
             Number(data.latitude).toFixed(4),
             Number(data.longitude).toFixed(4),
@@ -732,13 +760,18 @@
           );
         } catch (error) {
           setBusy(false);
-          showError(`${error.message} Enter coordinates manually.`);
+          const reason = error.name === "AbortError"
+            ? "Location lookup timed out."
+            : error.message;
+          showError(`${reason} Enter coordinates manually.`);
+        } finally {
+          clearTimeout(timer);
         }
       };
 
       const useMyLocation = () => {
         setBusy(true);
-        setState("loading");
+        setState("locating");
 
         if (!navigator.geolocation) {
           useIpLocation();
@@ -746,15 +779,30 @@
         }
 
         announce("Requesting your location…");
+
+        // The browser's own timeout only starts after permission is granted, so
+        // an unanswered prompt would wait forever. Fall back to IP lookup instead.
+        let settled = false;
+        const settle = (handler) => (...args) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(promptTimer);
+          handler(...args);
+        };
+        const promptTimer = setTimeout(
+          settle(() => { useIpLocation(); }),
+          PERMISSION_WAIT_MS
+        );
+
         navigator.geolocation.getCurrentPosition(
-          (position) => {
+          settle((position) => {
             applyCoordinates(
               position.coords.latitude.toFixed(5),
               position.coords.longitude.toFixed(5),
               "Browser location"
             );
-          },
-          () => { useIpLocation(); },
+          }),
+          settle(() => { useIpLocation(); }),
           { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
         );
       };
