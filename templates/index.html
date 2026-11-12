@@ -17,7 +17,8 @@
       --color-surface-sunken: #f3f7fa;
       --color-text: #17212b;
       --color-muted: #52606d;
-      --color-border: #c4d1db;
+      --color-border: #c4d1db;          /* decorative dividers only */
+      --color-border-strong: #7a8995;   /* control boundaries: >= 3:1 (WCAG 1.4.11) */
       --color-primary: #1769aa;
       --color-primary-hover: #12578f;
       --color-on-primary: #ffffff;
@@ -50,6 +51,7 @@
         --color-text: #e8eef3;
         --color-muted: #9fb0bf;
         --color-border: #2e3f4e;
+        --color-border-strong: #6b7f90;
         --color-primary: #5eb1f0;
         --color-primary-hover: #82c3f5;
         --color-on-primary: #08202f;
@@ -125,15 +127,23 @@
       gap: var(--space-4);
     }
 
+    .header-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
     .segmented {
       display: inline-flex;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--color-border-strong);
       border-radius: var(--radius-pill);
       padding: 2px;
       background: var(--color-surface);
     }
 
     .segmented label {
+      display: block;
       position: relative;
       cursor: pointer;
     }
@@ -147,8 +157,10 @@
     }
 
     .segmented span {
-      display: block;
-      padding: var(--space-1) var(--space-4);
+      display: flex;
+      align-items: center;
+      min-height: 2.75rem; /* 44px click target (WCAG 2.5.5) */
+      padding: 0 var(--space-4);
       border-radius: var(--radius-pill);
       font-weight: 600;
       font-size: 0.9rem;
@@ -211,10 +223,15 @@
       font: inherit;
       color: inherit;
       background: var(--color-surface-sunken);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--color-border-strong);
       border-radius: var(--radius-sm);
       padding: 0.65rem var(--space-3);
       min-height: 2.75rem;
+    }
+
+    input::placeholder {
+      color: var(--color-muted);
+      opacity: 1;
     }
 
     input[aria-invalid="true"] {
@@ -281,10 +298,10 @@
       font-size: 0.9rem;
       color: var(--color-text);
       background: var(--color-surface-sunken);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--color-border-strong);
       border-radius: var(--radius-pill);
-      padding: var(--space-1) var(--space-3);
-      min-height: 2rem;
+      padding: var(--space-1) var(--space-4);
+      min-height: 2.75rem;
       cursor: pointer;
       transition: border-color var(--motion-fast) var(--ease);
     }
@@ -348,7 +365,6 @@
     .hero-label {
       margin: 0;
       font-size: 0.9rem;
-      opacity: 0.9;
     }
 
     .temperature {
@@ -416,6 +432,11 @@
     }
 
     footer {
+      position: relative;
+      z-index: 1;
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 0 var(--space-4) var(--space-6);
       color: var(--color-muted);
       font-size: 0.85rem;
       text-align: center;
@@ -423,16 +444,153 @@
 
     footer a { color: inherit; }
 
+    /* ------------------------------------------------------------------
+       Decorative map skeleton background
+       - Purely decorative: aria-hidden, no pointer events, no content.
+       - Line colour is faint on purpose so text drawn directly on the page
+         background keeps >= 4.5:1 contrast even where a line passes behind it.
+       - Three identical tiles scroll by exactly one tile width, so the loop is
+         seamless (and wide enough for screens up to a 4:1 aspect ratio).
+       - Can be paused (WCAG 2.2.2) and is off for prefers-reduced-motion.
+       ------------------------------------------------------------------ */
+    :root { --map-line: rgb(23 33 43 / 0.10); }
+
+    @media (prefers-color-scheme: dark) {
+      :root { --map-line: rgb(232 238 243 / 0.10); }
+    }
+
+    .map-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+      -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.45) 100%);
+              mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.45) 100%);
+    }
+
+    .map-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: auto;
+      aspect-ratio: 6 / 1;
+      color: var(--map-line);
+      animation: map-scroll 240s linear infinite;
+      will-change: transform;
+    }
+
+    .map-bg[data-animate="false"] .map-track { animation-play-state: paused; }
+
+    @keyframes map-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-33.3333%); }
+    }
+
+    main { position: relative; z-index: 1; }
+
+    .switch {
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 2.75rem;
+      padding: 0 var(--space-4);
+      color: var(--color-text);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+    }
+
+    .switch .track {
+      position: relative;
+      width: 2rem;
+      height: 1.1rem;
+      border-radius: var(--radius-pill);
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border-strong);
+      transition: background var(--motion-fast) var(--ease);
+    }
+
+    .switch .track::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 2px;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      background: var(--color-muted);
+      transform: translateY(-50%);
+      transition: transform var(--motion-fast) var(--ease),
+                  background var(--motion-fast) var(--ease);
+    }
+
+    .switch[aria-checked="true"] .track {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+
+    .switch[aria-checked="true"] .track::after {
+      background: var(--color-on-primary);
+      transform: translate(0.9rem, -50%);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
+
+      /* No scrolling at all, and nothing to pause. */
+      .map-track { animation: none !important; }
+      .switch { display: none; }
     }
   </style>
 </head>
 <body>
+  <!-- Decorative map skeleton: hidden from assistive technology. -->
+  <div class="map-bg" id="map-bg" data-animate="true" aria-hidden="true">
+    <svg class="map-track" viewBox="0 0 3600 600" preserveAspectRatio="xMinYMid slice"
+         focusable="false">
+      <defs>
+        <g id="map-tile" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Graticule -->
+          <path stroke-width="1" opacity="0.7"
+                d="M0 0V600M100 0V600M200 0V600M300 0V600M400 0V600M500 0V600M600 0V600M700 0V600M800 0V600M900 0V600M1000 0V600M1100 0V600
+                   M0 100H1200M0 200H1200M0 300H1200M0 400H1200M0 500H1200"/>
+          <!-- Abstract landmass outlines (skeleton: outline only) -->
+          <g stroke-width="2">
+            <path d="M180 140C230 110 300 120 330 160C350 200 320 240 290 260C310 300 340 330 330 380C320 440 270 480 240 470C215 440 230 390 210 350C190 300 150 260 150 210C150 180 160 155 180 140Z"/>
+            <path d="M520 130C560 110 620 125 640 160C660 190 640 220 650 250C680 290 700 340 670 400C650 450 610 480 580 450C560 410 570 350 540 320C510 290 480 250 500 200C505 170 500 145 520 130Z"/>
+            <path d="M700 120C780 90 900 100 980 140C1050 175 1040 230 990 250C940 270 930 310 880 300C830 290 800 250 760 240C710 230 680 160 700 120Z"/>
+            <path d="M900 400C940 380 1010 390 1030 425C1040 455 1000 480 950 480C905 475 880 435 900 400Z"/>
+            <path d="M400 90C420 80 450 85 455 105C458 125 430 130 410 120C395 112 392 98 400 90Z"/>
+            <path d="M1080 300C1095 292 1115 300 1112 318C1108 335 1085 335 1078 322C1074 314 1076 305 1080 300Z"/>
+          </g>
+          <!-- Dashed route line; same height at both tile edges so the loop joins -->
+          <path stroke-width="1.5" stroke-dasharray="3 9"
+                d="M0 330C300 270 500 400 800 320S1100 300 1200 330"/>
+          <!-- Location pins -->
+          <g stroke-width="1.5">
+            <circle cx="270" cy="230" r="4"/><circle cx="270" cy="230" r="10"/>
+            <circle cx="585" cy="190" r="4"/><circle cx="585" cy="190" r="10"/>
+            <circle cx="900" cy="190" r="4"/><circle cx="900" cy="190" r="10"/>
+            <circle cx="960" cy="440" r="4"/><circle cx="960" cy="440" r="10"/>
+          </g>
+        </g>
+      </defs>
+      <use href="#map-tile" x="0"/>
+      <use href="#map-tile" x="1200"/>
+      <use href="#map-tile" x="2400"/>
+    </svg>
+  </div>
+
   <main>
     <header class="page-header">
       <div>
@@ -440,15 +598,22 @@
         <p class="subtitle">Enter coordinates or use your location.</p>
       </div>
 
-      <div class="segmented" role="radiogroup" aria-label="Units">
-        <label>
-          <input type="radio" name="units" value="imperial" checked>
-          <span>°F · mph</span>
-        </label>
-        <label>
-          <input type="radio" name="units" value="metric">
-          <span>°C · km/h</span>
-        </label>
+      <div class="header-controls">
+        <button class="switch" id="map-toggle" type="button" role="switch" aria-checked="true">
+          <span class="track" aria-hidden="true"></span>
+          Animate background
+        </button>
+
+        <div class="segmented" role="radiogroup" aria-label="Units">
+          <label>
+            <input type="radio" name="units" value="imperial" checked>
+            <span>°F · mph</span>
+          </label>
+          <label>
+            <input type="radio" name="units" value="metric">
+            <span>°C · km/h</span>
+          </label>
+        </div>
       </div>
     </header>
 
@@ -493,7 +658,10 @@
 
     <p class="visually-hidden" id="status" role="status" aria-live="polite"></p>
 
-    <section class="card" id="panel" data-state="empty" aria-live="polite" aria-busy="false">
+    <section class="card" id="panel" data-state="empty" aria-labelledby="result-heading"
+             aria-busy="false">
+      <h2 class="visually-hidden" id="result-heading">Weather result</h2>
+
       <div class="state state-empty">
         <strong>No weather loaded yet</strong>
         Pick a city above, type coordinates, or use your location.
@@ -531,12 +699,12 @@
         </dl>
       </div>
     </section>
-
-    <footer>
-      Weather by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
-      IP-based location is approximate; enter coordinates when accuracy matters.
-    </footer>
   </main>
+
+  <footer>
+    Weather by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
+    IP-based location is approximate; enter coordinates when accuracy matters.
+  </footer>
 
   <script>
     (() => {
@@ -610,9 +778,9 @@
       };
 
       const showError = (text) => {
+        // The error block has role="alert", so it is announced when it appears.
         $("#error-message").textContent = text;
         setState("error");
-        announce(text);
       };
 
       const render = () => {
@@ -851,6 +1019,27 @@
       if (storedUnits === "metric" || storedUnits === "imperial") {
         document.querySelector(`input[name="units"][value="${storedUnits}"]`).checked = true;
       }
+
+      /* ---------- Background map animation (pause / play) ---------- */
+
+      const MAP_STORAGE_KEY = "weather-map-animation";
+      const mapBg = $("#map-bg");
+      const mapToggle = $("#map-toggle");
+
+      const setMapAnimation = (on) => {
+        mapBg.dataset.animate = String(on);
+        mapToggle.setAttribute("aria-checked", String(on));
+      };
+
+      let storedMap = null;
+      try { storedMap = localStorage.getItem(MAP_STORAGE_KEY); } catch { /* optional */ }
+      setMapAnimation(storedMap !== "off");
+
+      mapToggle.addEventListener("click", () => {
+        const next = mapToggle.getAttribute("aria-checked") !== "true";
+        setMapAnimation(next);
+        try { localStorage.setItem(MAP_STORAGE_KEY, next ? "on" : "off"); } catch { /* optional */ }
+      });
     })();
   </script>
 </body>
