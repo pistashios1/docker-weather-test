@@ -29,6 +29,9 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
   };
 
   const close = () => {
+    // Drop any queued or in-flight search so a late answer can't reopen the list.
+    clearTimeout(debounceTimer);
+    if (controller) controller.abort();
     popup.hidden = true;
     input.setAttribute("aria-expanded", "false");
     setActive(-1);

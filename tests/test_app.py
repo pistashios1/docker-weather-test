@@ -322,3 +322,19 @@ def test_world_map_is_a_seamless_outline():
     assert root.attrib["viewBox"].split()[:3:2] == ["0", "360"]
     paths = [element.attrib.get("d", "") for element in root.iter("{http://www.w3.org/2000/svg}path")]
     assert max(len(path) for path in paths) > 10_000
+
+
+def test_responses_carry_a_content_security_policy():
+    result = app.test_client().get("/")
+
+    policy = result.headers["Content-Security-Policy"]
+    assert "default-src 'self'" in policy
+    assert "frame-ancestors 'none'" in policy
+    assert "unsafe-inline" not in policy
+
+
+def test_page_has_no_inline_styles_or_scripts():
+    html = app.test_client().get("/").get_data(as_text=True)
+
+    assert " style=" not in html
+    assert not re.search(r"<script(?![^>]*\bsrc=)", html)

@@ -31,6 +31,13 @@ REVERSE_GEOCODING_URL = "https://nominatim.openstreetmap.org/reverse"
 
 # Health probes and the dashboard's own CSS, JavaScript and map should not
 # use up a visitor's API request budget.
+# The page loads only its own CSS, scripts, fonts and map. The data: image
+# is the emoji favicon in the template.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; img-src 'self' data:; object-src 'none'; "
+    "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+)
+
 RATE_LIMIT_EXEMPT_ENDPOINTS = frozenset({"healthz", "readyz", "static"})
 
 
@@ -245,6 +252,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
         app.logger.info(
             "request method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
             request.method,

@@ -275,8 +275,8 @@ $env:RATE_LIMIT = "120"
 python weather_app.py
 ```
 
-The server also sends `X-Content-Type-Options`, `X-Frame-Options` and
-`Referrer-Policy` headers, and logs one line per request (method, path, status,
+The server also sends `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy` and `Content-Security-Policy` headers, and logs one line per request (method, path, status,
 duration and request ID) without logging provider responses.
 
 ## Troubleshooting
@@ -329,7 +329,7 @@ static/
 scripts/
   build-world-map.mjs      Generates the map from Natural Earth data
 tests/test_app.py         Test suite
-docs/                     Screenshot and design handoff spec
+docs/                     Screenshot, design handoff spec, design system
 ```
 
 ### Run the tests
@@ -340,7 +340,7 @@ python -m pytest
 ```
 
 The tests cover every endpoint, input validation, provider failures, caching,
-rate limiting, the page and its static files. They use mocked providers, so
+rate limiting, security headers, the page and its static files. They use mocked providers, so
 they run offline. GitHub Actions runs them on every push and pull request.
 
 ### Change the background map
@@ -357,9 +357,15 @@ npm run build-map
 
 ### Design notes
 
-[`docs/design-handoff.md`](docs/design-handoff.md) describes the layout,
-design tokens, states, keyboard behaviour and accessibility requirements for
-the dashboard.
+- [`docs/design-handoff.md`](docs/design-handoff.md) describes the layout,
+  states, keyboard behaviour and accessibility requirements for the dashboard.
+- [`docs/design-system.md`](docs/design-system.md) lists the colour, type,
+  spacing and motion tokens and the components built from them. Add a token
+  there and in `dashboard.css` before using a new value twice.
+
+The page loads nothing from other sites, so the Content Security Policy is
+strict (`default-src 'self'`). Keep it that way: no inline `<script>` or
+`style=` attributes, and self-host any new font or image.
 
 ## Deploying
 
