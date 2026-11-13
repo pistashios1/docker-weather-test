@@ -8,12 +8,17 @@
   <title>Weather Lookup</title>
   <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/map-marker.css') }}">
   <script type="module" src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </head>
 <body>
   <!-- Decorative world map outline (app/static/img/world-map.svg). Hidden from assistive technology. -->
   <div class="map-bg" id="map-bg" data-animate="true" aria-hidden="true">
-    <div class="map-track"></div>
+    <div class="map-track" id="map-track">
+      <div class="map-lines"></div>
+      <div class="map-marker" data-map-marker hidden></div>
+      <div class="map-marker" data-map-marker hidden></div>
+    </div>
   </div>
 
   <main>

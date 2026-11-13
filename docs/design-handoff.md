@@ -122,7 +122,15 @@ effectively instant and the map does not move.
 graticule every 30° and the equator and tropics dashed. It is used as a CSS mask
 so the line colour follows the theme. The track is one map wider than the
 viewport and slides by exactly one map width, so the loop is seamless. Rebuild it
-with `scripts/build-world-map.mjs`.
+with `scripts/build-world-map.mjs`. On desktop, a marker is projected into the
+same track from the latitude and longitude returned by the weather response:
+`x = (longitude + 180) / 360` and `y = (84 - latitude) / 142`, clamped to the
+tile bounds. It appears after a successful weather load inside the map track,
+scrolls with the map, and pauses with it. The marker is hidden below 36rem and
+kept low-opacity so it remains decorative; it uses the map-line color in light
+mode and a subdued glowing white dot in dark mode.
+The projection and marker lifecycle live in `app/static/js/map-marker.js`; its
+visual treatment is isolated in `app/static/css/map-marker.css`.
 
 ## Edge cases
 

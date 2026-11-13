@@ -10,6 +10,7 @@ import {
 } from "./format.js";
 import { createSearchBox } from "./search-box.js";
 import { readStorage, writeStorage } from "./storage.js";
+import { createMapMarker } from "./map-marker.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -33,6 +34,10 @@ const unitRadios = document.querySelectorAll('input[name="units"]');
 const panel = $("#panel");
 const status = $("#status");
 const forecast = $("#forecast");
+const mapMarker = createMapMarker({
+  track: $("#map-track"),
+  markers: document.querySelectorAll("[data-map-marker]"),
+});
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -253,6 +258,7 @@ const loadWeather = async () => {
 
   setBusy(true);
   setState("loading");
+  mapMarker.clear();
   announce("Loading weather…");
 
   try {
@@ -268,6 +274,7 @@ const loadWeather = async () => {
     lastData = data;
     lastFetchedAt = new Date();
     render();
+    mapMarker.setCoordinates(data.latitude, data.longitude);
     setState("ready");
     revealResult();
     announce(

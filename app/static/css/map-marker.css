@@ -1,0 +1,25 @@
+/* Location marker for the decorative, tiled background map. */
+.map-marker {
+  position: absolute;
+  display: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--color-map-line);
+  opacity: 0.55;
+  transform: translate(-50%, -50%);
+}
+
+@media (min-width: 36rem) {
+  .map-marker:not([hidden]) {
+    display: block;
+  }
+}
+
+@media (prefers-color-scheme: dark) and (min-width: 36rem) {
+  .map-marker:not([hidden]) {
+    background: #fff;
+    box-shadow: 0 0 0.55rem rgb(255 255 255 / 0.8);
+    opacity: 0.65;
+  }
+}
