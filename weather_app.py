@@ -29,6 +29,10 @@ IP_LOCATION_URL = "https://ipapi.co/json/"
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 REVERSE_GEOCODING_URL = "https://nominatim.openstreetmap.org/reverse"
 
+# Health probes and the dashboard's own CSS, JavaScript and map should not
+# use up a visitor's API request budget.
+RATE_LIMIT_EXEMPT_ENDPOINTS = frozenset({"healthz", "readyz", "static"})
+
 
 @dataclass(frozen=True)
 class AppConfig:
@@ -226,7 +230,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
     def before_request():
         g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         g.request_started = time.monotonic()
-        if request.endpoint not in {"healthz", "readyz"} and not limiter.allowed(
+        if request.endpoint not in RATE_LIMIT_EXEMPT_ENDPOINTS and not limiter.allowed(
             request.remote_addr or "unknown"
         ):
             return error_response(

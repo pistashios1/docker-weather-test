@@ -1,9 +1,14 @@
+import re
+import xml.etree.ElementTree as ElementTree
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 
 from weather_app import AppConfig, app, create_app
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 @pytest.fixture(autouse=True)
@@ -261,3 +266,59 @@ def test_configuration_can_be_overridden():
     configured_app = create_app(configured)
 
     assert configured_app.test_client().get("/readyz").status_code == 200
+
+
+def test_index_links_dashboard_assets():
+    page = app.test_client().get("/").get_data(as_text=True)
+
+    assert "/static/css/dashboard.css" in page
+    assert "/static/js/dashboard.js" in page
+    assert "<style>" not in page
+    assert "<script>" not in page
+
+
+@pytest.mark.parametrize(
+    ("path", "content_type"),
+    [
+        ("css/dashboard.css", "text/css"),
+        ("js/dashboard.js", "javascript"),
+        ("js/format.js", "javascript"),
+        ("js/search-box.js", "javascript"),
+        ("js/storage.js", "javascript"),
+        ("img/world-map.svg", "image/svg+xml"),
+        ("fonts/space-grotesk-latin-wght-normal.woff2", "font/woff2"),
+        ("fonts/space-grotesk-latin-ext-wght-normal.woff2", "font/woff2"),
+    ],
+)
+def test_dashboard_assets_are_served(path, content_type):
+    result = app.test_client().get(f"/static/{path}")
+
+    assert result.status_code == 200
+    assert content_type in result.headers["Content-Type"]
+    result.close()
+
+
+def test_static_assets_are_not_rate_limited():
+    with patch.object(app.extensions["rate_limiter"], "limit", 0):
+        result = app.test_client().get("/static/css/dashboard.css")
+
+    assert result.status_code == 200
+    result.close()
+
+
+def test_javascript_module_imports_resolve():
+    modules = sorted((STATIC_DIR / "js").glob("*.js"))
+    assert modules
+
+    for module in modules:
+        for target in re.findall(r'from\s+"(\./[^"]+)"', module.read_text(encoding="utf-8")):
+            assert (module.parent / target).is_file(), f"{module.name} imports missing {target}"
+
+
+def test_world_map_is_a_seamless_outline():
+    root = ElementTree.parse(STATIC_DIR / "img" / "world-map.svg").getroot()
+
+    # One unit per degree: exactly 360 degrees of longitude, so copies tile with no seam.
+    assert root.attrib["viewBox"].split()[:3:2] == ["0", "360"]
+    paths = [element.attrib.get("d", "") for element in root.iter("{http://www.w3.org/2000/svg}path")]
+    assert max(len(path) for path in paths) > 10_000

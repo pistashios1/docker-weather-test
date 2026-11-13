@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY weather_app.py api_contracts.py ./
 COPY templates templates
+COPY static static
 
 EXPOSE 5000
 

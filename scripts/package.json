@@ -1,0 +1,14 @@
+{
+  "name": "weather-lookup-map-builder",
+  "private": true,
+  "type": "module",
+  "description": "Generates static/img/world-map.svg from Natural Earth coastline data.",
+  "scripts": {
+    "build-map": "node build-world-map.mjs"
+  },
+  "dependencies": {
+    "d3-geo": "3.1.1",
+    "topojson-client": "3.1.0",
+    "world-atlas": "2.0.2"
+  }
+}
