@@ -46,6 +46,7 @@
   --color-danger: #b42318;
   --color-danger-bg: #fef3f2;
   --color-focus: #1769aa;
+  --color-focus-ring: rgb(23 105 170 / 0.6);
   --color-map-line: rgb(23 33 43 / 0.12);
   --shadow-card: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1);
 
@@ -88,6 +89,7 @@
     --color-danger: #ff9a8f;
     --color-danger-bg: #3a1a17;
     --color-focus: #82c3f5;
+    --color-focus-ring: rgb(130 195 245 / 0.6);
     --color-map-line: rgb(232 238 243 / 0.16);
     --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
   }
@@ -116,7 +118,7 @@ h1 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -290,7 +292,7 @@ main {
 }
 
 .segmented input:focus-visible + span {
-  outline: 3px solid var(--color-focus);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -637,6 +639,7 @@ main {
   gap: 0;
   padding-bottom: var(--space-2);
   overflow-x: auto;
+  scroll-behavior: smooth;
   scrollbar-gutter: stable;
   scroll-snap-type: x proximity;
 }
@@ -796,6 +799,7 @@ footer a { color: inherit; }
   }
 
   .map-track { animation: none !important; }
+  .forecast { scroll-behavior: auto; }
 
   #map-toggle { display: none; }
 }

@@ -141,9 +141,13 @@ def validate_weather_response(data: Any) -> dict[str, Any]:
         raise InvalidUpstreamPayload("weather coordinates are invalid") from error
     if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
         raise InvalidUpstreamPayload("weather coordinates are out of range")
+    timezone = data.get("timezone")
+    if not isinstance(timezone, str) or not timezone.strip():
+        timezone = "UTC"
     return {
         "latitude": latitude,
         "longitude": longitude,
+        "timezone": timezone,
         "current": current,
         "hourly": {
             "time": times[:48],
@@ -158,6 +162,7 @@ def weather_response(data: dict[str, Any]):
         {
             "latitude": data["latitude"],
             "longitude": data["longitude"],
+            "timezone": data["timezone"],
             "current": data["current"],
             "hourly": data["hourly"],
             "source": "Open-Meteo",

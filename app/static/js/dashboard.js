@@ -1,16 +1,28 @@
-import {
-  conditionForCode,
-  fahrenheitToCelsius,
-  formatClock,
-  formatCoordinates,
-  formatHour,
-  mphToKmh,
-  numberFormat,
-  toneForFahrenheit,
-} from "./format.js";
-import { createSearchBox } from "./search-box.js";
-import { readStorage, writeStorage } from "./storage.js";
-import { createMapMarker } from "./map-marker.js";
+const assetVersion = new URL(import.meta.url).searchParams.get("v") || "";
+const versionedImport = (path) =>
+  import(`${path}?v=${encodeURIComponent(assetVersion)}`);
+
+const [
+  {
+    conditionForCode,
+    fahrenheitToCelsius,
+    formatClock,
+    formatCoordinates,
+    formatHour,
+    mphToKmh,
+    numberFormat,
+    formatUtcOffset,
+    toneForFahrenheit,
+  },
+  { createSearchBox },
+  { readStorage, writeStorage },
+  { createMapMarker },
+] = await Promise.all([
+  versionedImport("./format.js"),
+  versionedImport("./search-box.js"),
+  versionedImport("./storage.js"),
+  versionedImport("./map-marker.js"),
+]);
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -40,6 +52,7 @@ const mapMarker = createMapMarker({
 });
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const FORECAST_SCROLL_FACTOR = 0.85;
 
 forecast.addEventListener(
   "wheel",
@@ -51,7 +64,7 @@ forecast.addEventListener(
     if (!isMouseWheel || event.deltaX !== 0 || event.deltaY === 0) return;
     event.preventDefault();
     forecast.scrollBy({
-      left: event.deltaY,
+      left: event.deltaY * FORECAST_SCROLL_FACTOR,
       behavior: prefersReducedMotion.matches ? "auto" : "smooth",
     });
   },
@@ -155,19 +168,30 @@ const renderForecast = () => {
         hourly.time.findIndex((time) => time >= currentTime)
       )
     : 0;
-  const times = hourly.time.slice(currentIndex, currentIndex + FORECAST_HOURS);
-  const temperatures = hourly.temperature_2m.slice(currentIndex, currentIndex + FORECAST_HOURS);
-  const weatherCodes = hourly.weather_code.slice(currentIndex, currentIndex + FORECAST_HOURS);
+  const times = hourly.time.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
+  const temperatures = hourly.temperature_2m.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
+  const weatherCodes = hourly.weather_code.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
+  const forecastItems = [
+    {
+      time: "Now",
+      temperature: lastData.current.temperature_2m,
+      weatherCode: lastData.current.weather_code,
+    },
+    ...times.map((time, index) => ({
+      time,
+      temperature: temperatures[index],
+      weatherCode: weatherCodes[index],
+    })),
+  ];
   forecast.replaceChildren(
-    ...times.map((time, index) => {
-      const condition = conditionForCode(Number(weatherCodes[index]));
-      const fahrenheit = temperatures[index];
+    ...forecastItems.map(({ time, temperature: fahrenheit, weatherCode }, index) => {
+      const condition = conditionForCode(Number(weatherCode));
       const temperature = metric ? fahrenheitToCelsius(fahrenheit) : fahrenheit;
 
       const card = document.createElement("div");
       card.className = "forecast-card";
       const parts = [
-        ["forecast-time", index === 0 ? "Now" : formatHour(time)],
+        ["forecast-time", index === 0 ? time : formatHour(time)],
         ["forecast-symbol", condition.icon],
         ["forecast-temperature", `${numberFormat(0).format(temperature)}°`],
         ["forecast-condition", condition.label],
@@ -195,7 +219,8 @@ const render = () => {
 
   $("#location-name").textContent = selectedLocation.name;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
-  $("#updated").textContent = formatClock(lastFetchedAt);
+  $("#local-time").textContent = formatClock(current.time || lastFetchedAt);
+  $("#utc-offset").textContent = formatUtcOffset(lastData.timezone);
   $("#condition").textContent = `${condition.icon} ${condition.label}`;
   $("#temperature").textContent = numberFormat(0).format(temperature);
   $("#temperature-unit").textContent = metric ? "°C" : "°F";

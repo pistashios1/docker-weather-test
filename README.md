@@ -260,6 +260,11 @@ Set environment variables before starting the app. All are optional.
 | `REVERSE_GEOCODING_URL` | Nominatim | Place-name provider URL. |
 | `IP_LOCATION_URL` | ipapi.co | IP location provider URL. |
 
+Static dashboard assets are served with a one-day browser cache and
+`immutable` caching. Their URLs include a process-specific version, so a
+server restart automatically causes the browser to request the current assets
+again without requiring manual cache clearing.
+
 > **Keep the unit defaults if you use the dashboard.** The page expects °F and
 > mph from the API and does the metric conversion itself. If you set
 > `TEMPERATURE_UNIT=celsius` or `WIND_SPEED_UNIT=kmh`, the dashboard will show

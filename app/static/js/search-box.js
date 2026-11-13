@@ -31,6 +31,7 @@ export function createSearchBox({
   let searchTimestamps = [];
   let lockoutCount = 0;
   let lockoutUntil = 0;
+  let replaceOnNextInput = false;
 
   const isOpen = () => !popup.hidden;
   const normalizeQuery = (query) => query.trim().toLocaleLowerCase();
@@ -184,6 +185,7 @@ export function createSearchBox({
   };
 
   input.addEventListener("input", () => {
+    replaceOnNextInput = false;
     clearTimeout(debounceTimer);
     if (cachedResultsFor(input.value)) {
       run();
@@ -192,7 +194,48 @@ export function createSearchBox({
     }
   });
 
+  const selectForReplacement = () => {
+    input.select();
+    replaceOnNextInput = true;
+  };
+
+  input.addEventListener("focus", selectForReplacement);
+  input.addEventListener("pointerdown", (event) => {
+    if (document.activeElement === input) {
+      event.preventDefault();
+      selectForReplacement();
+    }
+  });
+  input.addEventListener("mousedown", (event) => {
+    if (document.activeElement === input) {
+      event.preventDefault();
+      selectForReplacement();
+    }
+  });
+  input.addEventListener("mouseup", (event) => {
+    if (document.activeElement === input) {
+      event.preventDefault();
+      selectForReplacement();
+    }
+  });
+  input.addEventListener("click", () => {
+    selectForReplacement();
+    setTimeout(() => {
+      if (document.activeElement === input) selectForReplacement();
+    }, 0);
+  });
+
   input.addEventListener("keydown", (event) => {
+    if (
+      replaceOnNextInput &&
+      event.key.length === 1 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      input.value = "";
+      replaceOnNextInput = false;
+    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       if (!results.length) return;
       event.preventDefault();
