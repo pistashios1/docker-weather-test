@@ -146,9 +146,9 @@ def validate_weather_response(data: Any) -> dict[str, Any]:
         "longitude": longitude,
         "current": current,
         "hourly": {
-            "time": times[:24],
-            "temperature_2m": temperatures[:24],
-            "weather_code": weather_codes[:24],
+            "time": times[:48],
+            "temperature_2m": temperatures[:48],
+            "weather_code": weather_codes[:48],
         },
     }
 

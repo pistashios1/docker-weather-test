@@ -177,7 +177,8 @@ curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
   in millimetres.
 - `weather_code` is a [WMO weather code](https://open-meteo.com/en/docs#weathervariables).
   The dashboard turns it into a label such as *Clear*, *Rain* or *Thunderstorm*.
-- `hourly` holds up to 24 hours. The dashboard shows the first 12.
+- `hourly` holds up to 48 hours so the dashboard can show 12 consecutive
+  hours even when the forecast crosses midnight.
 
 ### `GET /search`
 

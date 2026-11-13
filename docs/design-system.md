@@ -20,7 +20,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 ### Colour
 
 | Token | Light | Dark | Use |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `--color-bg` | `#eef4f8` | `#0f1720` | Page background |
 | `--color-surface` | `#ffffff` | `#18232e` | Cards |
 | `--color-surface-sunken` | `#f3f7fa` | `#121c25` | Inputs, forecast cards |
@@ -45,7 +45,7 @@ every stop is at least 4.7:1; keep that when you add or change one.
 ### Type
 
 | Token | Size | Use |
-|---|---|---|
+| --- | --- | --- |
 | `--text-xs` | 0.75rem | Forecast condition captions |
 | `--text-sm` | 0.9rem | Labels, meta, small controls |
 | `--text-md` | 1.15rem | Condition, forecast temperature |
@@ -59,7 +59,7 @@ they scale with the viewport. `--font-sans` is Space Grotesk Variable
 ### Spacing, shape, motion
 
 | Token | Value |
-|---|---|
+| --- | --- |
 | `--space-1` … `--space-6` | 0.25, 0.5, 0.75, 1, 1.5, 2.5 rem |
 | `--radius-sm` / `-md` / `-pill` | 0.4rem / 0.75rem / 999px |
 | `--column-width` | 56rem |
@@ -70,7 +70,7 @@ they scale with the viewport. `--font-sans` is Space Grotesk Variable
 ## Components
 
 | Component | Class or id | Variants | States covered |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Button | `.btn` | primary, `.secondary` | hover, active, focus-visible, disabled |
 | Link button | `.link-button` | one | 70 % opacity; 100 % on hover and focus; disabled 45 % |
 | Segmented control | `.segmented` | units (2 options) | checked, focus-visible |
@@ -95,12 +95,19 @@ they scale with the viewport. `--font-sans` is Space Grotesk Variable
 
 ## Do and don't
 
-| Do | Don't |
-|---|---|
-| Add a token before a second use of a new value | Hard-code a hex colour in a component |
-| Use `--color-border-strong` on controls | Use `--color-border` on a control edge |
-| Check white-on-gradient contrast when editing hero stops | Lighten a stop without re-measuring |
-| Keep new cards in `--column-width` | Give a card its own max-width |
+### Do
+
+- Add a token before a second use of a new value.
+- Use `--color-border-strong` on controls.
+- Check white-on-gradient contrast when editing hero stops.
+- Keep new cards in `--column-width`.
+
+### Don't
+
+- Hard-code a hex colour in a component.
+- Use `--color-border` on a control edge.
+- Lighten a stop without re-measuring.
+- Give a card its own max-width.
 
 ## Known gaps
 

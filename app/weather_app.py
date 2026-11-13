@@ -409,7 +409,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
                         "relative_humidity_2m,uv_index"
                     ),
                     "hourly": "temperature_2m,weather_code",
-                    "forecast_days": 1,
+                    "forecast_days": 2,
                     "timezone": "auto",
                     "temperature_unit": config.temperature_unit,
                     "wind_speed_unit": config.wind_speed_unit,

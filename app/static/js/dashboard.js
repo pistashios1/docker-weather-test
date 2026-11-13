@@ -14,6 +14,9 @@ import { readStorage, writeStorage } from "./storage.js";
 const $ = (selector) => document.querySelector(selector);
 
 const REQUEST_TIMEOUT_MS = 10000;
+const INITIAL_LOCATION_WAIT_MS = 1000;
+const LOCATION_CACHE_TTL_MS = 15 * 60 * 1000;
+const LOCATION_PROMPT_TIMEOUT_MS = 8000;
 const FORECAST_HOURS = 12;
 const UNIT_STORAGE_KEY = "weather-units";
 const SEARCH_AFFINITY_KEY = "weather-search-affinity";
@@ -29,8 +32,26 @@ const retryButton = $("#retry-button");
 const unitRadios = document.querySelectorAll('input[name="units"]');
 const panel = $("#panel");
 const status = $("#status");
+const forecast = $("#forecast");
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+forecast.addEventListener(
+  "wheel",
+  (event) => {
+    const isMouseWheel = event.deltaMode === WheelEvent.DOM_DELTA_LINE ||
+      (event.deltaMode === WheelEvent.DOM_DELTA_PIXEL &&
+        Number.isInteger(event.deltaY) &&
+        Math.abs(event.deltaY) >= 40);
+    if (!isMouseWheel || event.deltaX !== 0 || event.deltaY === 0) return;
+    event.preventDefault();
+    forecast.scrollBy({
+      left: event.deltaY,
+      behavior: prefersReducedMotion.matches ? "auto" : "smooth",
+    });
+  },
+  { passive: false }
+);
 
 let lastData = null; // Latest /weather payload (imperial units)
 let lastFetchedAt = null;
@@ -111,7 +132,6 @@ const revealResult = () => {
 /* ---------- Rendering ---------- */
 
 const renderForecast = () => {
-  const forecast = $("#forecast");
   const hourly = lastData.hourly;
   if (!hourly || !Array.isArray(hourly.time) || !hourly.time.length) {
     const unavailable = document.createElement("p");
@@ -290,6 +310,8 @@ const readUserLocation = () => {
       Number.isFinite(value.latitude) &&
       Number.isFinite(value.longitude) &&
       name &&
+      Number.isFinite(value.savedAt) &&
+      Date.now() - value.savedAt < LOCATION_CACHE_TTL_MS &&
       !["Your location", "Current location", "Location unavailable"].includes(name)
       ? { ...value, name }
       : null;
@@ -299,7 +321,7 @@ const readUserLocation = () => {
 };
 
 const rememberUserLocation = (location) => {
-  writeStorage(USER_LOCATION_KEY, JSON.stringify(location));
+  writeStorage(USER_LOCATION_KEY, JSON.stringify({ ...location, savedAt: Date.now() }));
 };
 
 const sameLocation = (left, right) =>
@@ -342,7 +364,7 @@ const resolveBrowserLocation = async ({ coords }, attempt) => {
   applyLocation(location, false);
 };
 
-const useMyLocation = () => {
+const useMyLocation = (initialLoad = false) => {
   searchInput.value = "";
   if (useCachedUserLocation()) return;
 
@@ -361,14 +383,23 @@ const useMyLocation = () => {
   const settle = (handler) => (...args) => {
     if (settled) return;
     settled = true;
+    clearTimeout(promptTimer);
     if (attempt !== locationAttempt) return;
     handler(...args, attempt);
   };
+  const promptTimer = setTimeout(
+    settle(useDefaultLocation),
+    initialLoad ? INITIAL_LOCATION_WAIT_MS : LOCATION_PROMPT_TIMEOUT_MS
+  );
 
   navigator.geolocation.getCurrentPosition(
     settle(resolveBrowserLocation),
     settle(useDefaultLocation),
-    { enableHighAccuracy: false, maximumAge: 300000 }
+    {
+      enableHighAccuracy: false,
+      timeout: LOCATION_PROMPT_TIMEOUT_MS,
+      maximumAge: 300000,
+    }
   );
 };
 
@@ -389,6 +420,8 @@ const searchBox = createSearchBox({
   message: $("#search-message"),
   list: $("#search-results"),
   announce,
+  cacheContext: () =>
+    `${selectedLocation?.latitude ?? ""},${selectedLocation?.longitude ?? ""}|${readSearchAffinity().join(",")}`,
   search: async (query, signal) => {
     const origin = selectedLocation || DEFAULT_LOCATION;
     const params = new URLSearchParams({
@@ -452,4 +485,4 @@ if (storedUnits === "metric" || storedUnits === "imperial") {
 }
 setMapAnimation(readStorage(MAP_STORAGE_KEY) !== "off");
 
-if (!useCachedUserLocation()) useDefaultLocation();
+if (!useCachedUserLocation()) useMyLocation(true);

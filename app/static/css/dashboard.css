@@ -163,9 +163,32 @@ main {
 }
 
 @media (max-width: 35.99rem) {
-  main { padding-top: var(--space-5); }
+  main {
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-3) var(--space-5);
+  }
 
-  .page-header { grid-template-columns: 1fr; }
+  .page-header {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .segmented {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .segmented label { flex: 1; }
+
+  .segmented span {
+    justify-content: center;
+    padding-inline: var(--space-3);
+  }
+
+  .card {
+    padding: var(--space-4);
+    border-radius: var(--radius-sm);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -393,9 +416,14 @@ main {
 }
 
 @media (max-width: 35.99rem) {
-  .search-row { grid-template-columns: auto minmax(0, 1fr); }
+  .search-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .search-input { grid-column: 1 / -1; }
+
+  .search-row .btn,
+  .search-row .link-button { width: 100%; }
+
+  .search-popup { max-height: min(20rem, 55dvh); }
 }
 
 /* ---------------------------------------------------------------------------
@@ -607,22 +635,26 @@ main {
 
 .forecast {
   display: flex;
-  gap: var(--space-2);
+  gap: 0;
   padding-bottom: var(--space-2);
   overflow-x: auto;
+  scrollbar-gutter: stable;
   scroll-snap-type: x proximity;
 }
 
 .forecast-card {
   display: grid;
-  flex: 0 0 4.75rem;
+  flex: 0 0 6.5rem;
   justify-items: center;
   gap: var(--space-1);
-  padding: var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  min-height: 7.7rem;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 1px solid var(--color-border);
   scroll-snap-align: start;
+}
+
+.forecast-card:first-child {
+  border-inline-start: 0;
 }
 
 .forecast-time,
@@ -638,30 +670,36 @@ main {
 }
 
 .forecast-condition {
-  margin: 0 -0.25rem;
+  min-height: 2.5em;
+  margin: 0;
   font-size: var(--text-xs);
   color: var(--color-muted);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 52rem) {
-  /* All twelve hours fit without scrolling in the wide panel. */
-  .forecast { overflow-x: visible; }
-
-  .forecast-card {
-    flex: 1 1 0;
-    min-width: 0;
-  }
+  .forecast-card { flex-basis: 6.75rem; }
 }
 
 @media (max-width: 35.99rem) {
+  .location-summary { padding: var(--space-4) var(--space-4) var(--space-3); }
+
+  .hero { padding: var(--space-4); }
+
   .details { grid-template-columns: 1fr; }
+
+  .details > div { padding-inline: var(--space-4); }
 
   .details > div + div {
     border-left: 0;
   }
 
   .hero-wind { text-align: left; }
+
+  .forecast-section { padding: var(--space-4); }
+
+  .forecast-card { flex-basis: 6rem; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -687,6 +725,15 @@ footer p {
 }
 
 footer a { color: inherit; }
+
+@media (max-width: 35.99rem) {
+  footer {
+    gap: var(--space-2);
+    padding: 0 var(--space-3) var(--space-5);
+  }
+
+  footer p { white-space: normal; }
+}
 
 /* ---------------------------------------------------------------------------
    Decorative world map background

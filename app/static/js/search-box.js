@@ -13,7 +13,16 @@ const SEARCH_WINDOW_MS = 5000;
 const LOCKOUT_STEP_MS = 2000;
 const MAX_LOCKOUT_MS = 60000;
 
-export function createSearchBox({ input, popup, message, list, search, onSelect, announce }) {
+export function createSearchBox({
+  input,
+  popup,
+  message,
+  list,
+  search,
+  onSelect,
+  announce,
+  cacheContext = () => "",
+}) {
   let results = [];
   let activeIndex = -1;
   let debounceTimer = null;
@@ -25,14 +34,22 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
 
   const isOpen = () => !popup.hidden;
   const normalizeQuery = (query) => query.trim().toLocaleLowerCase();
-  const cachedResultsFor = (query) =>
-    cachedResults.find((entry) => entry.query === normalizeQuery(query))?.results;
+  const cachedResultsFor = (query) => {
+    const normalizedQuery = normalizeQuery(query);
+    const context = cacheContext();
+    return cachedResults.find(
+      (entry) => entry.query === normalizedQuery && entry.context === context
+    )?.results;
+  };
 
   const rememberResults = (query, items) => {
     const normalizedQuery = normalizeQuery(query);
+    const context = cacheContext();
     cachedResults = [
-      { query: normalizedQuery, results: items },
-      ...cachedResults.filter((entry) => entry.query !== normalizedQuery),
+      { query: normalizedQuery, context, results: items },
+      ...cachedResults.filter(
+        (entry) => entry.query !== normalizedQuery || entry.context !== context
+      ),
     ].slice(0, SEARCH_CACHE_SIZE);
   };
 
