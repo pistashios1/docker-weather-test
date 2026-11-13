@@ -1,0 +1,11 @@
+# Local and CI-only files are not part of the deployed Flask function.
+tests/
+docs/
+scripts/
+.github/
+.pytest_cache/
+__pycache__/
+app/__pycache__/
+requirements-dev.txt
+Dockerfile
+.dockerignore
