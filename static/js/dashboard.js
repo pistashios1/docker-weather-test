@@ -37,6 +37,7 @@ let lastFetchedAt = null;
 let selectedLocation = null;
 let activeRequest = null; // AbortController of the in-flight weather request
 let busy = false;
+let locationAttempt = 0; // Bumped whenever a newer location choice supersedes a pending one
 
 /* ---------- Units ---------- */
 
@@ -262,6 +263,7 @@ const loadWeather = async () => {
 /* ---------- Location ---------- */
 
 const applyLocation = (location, updateSearchField = true) => {
+  locationAttempt += 1;
   selectedLocation = location;
   if (updateSearchField) searchInput.value = location.name;
   loadWeather();
@@ -269,7 +271,7 @@ const applyLocation = (location, updateSearchField = true) => {
 
 const useDefaultLocation = () => applyLocation(DEFAULT_LOCATION, false);
 
-const resolveBrowserLocation = async ({ coords }) => {
+const resolveBrowserLocation = async ({ coords }, attempt) => {
   let name = "Your location";
   try {
     const data = await fetchJson(
@@ -279,10 +281,12 @@ const resolveBrowserLocation = async ({ coords }) => {
   } catch {
     // Weather still works when reverse geocoding is unavailable.
   }
+  if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
   applyLocation({ latitude: coords.latitude, longitude: coords.longitude, name }, false);
 };
 
 const useMyLocation = () => {
+  const attempt = locationAttempt;
   setBusy(true);
   setState("locating");
 
@@ -300,7 +304,8 @@ const useMyLocation = () => {
     if (settled) return;
     settled = true;
     clearTimeout(promptTimer);
-    handler(...args);
+    if (attempt !== locationAttempt) return;
+    handler(...args, attempt);
   };
   const promptTimer = setTimeout(settle(useDefaultLocation), PERMISSION_WAIT_MS);
 

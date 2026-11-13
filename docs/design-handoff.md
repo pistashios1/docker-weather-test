@@ -18,7 +18,7 @@ controls are kept to one row and the result sits directly below them.
 | Wide, 36rem and up | Header: title left, unit toggle right. Search row: field, **Search**, **Use my location** link on one line. Details: three equal columns. Forecast: 12 cards in one row from 52rem, scrolls sideways below that. |
 | Narrow, under 36rem | Header stacks. Search field is on its own line, **Search** and the **Use my location** link share the next. Details stack in one column. Hero wind aligns left. Forecast scrolls sideways. |
 
-- Page content is at most 64rem wide. Cards are 40rem, the search card 52rem and the result panel 64rem, all centred.
+- Header, search card and result card share one column, at most 56rem wide (`--column-width`), centred.
 - After a successful lookup, if the result starts in the lower part of the screen (below 55% of the viewport height) it is scrolled into view. It uses an instant jump when the system asks for reduced motion.
 
 ## Design tokens
