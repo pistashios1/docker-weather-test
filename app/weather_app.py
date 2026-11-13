@@ -56,6 +56,9 @@ CONTENT_SECURITY_POLICY = (
     "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 )
 
+# Nominatim's usage policy asks for an identifying User-Agent with a contact.
+USER_AGENT = "weather-lookup/1.0 (+https://github.com/pistashios1/docker-weather-test)"
+
 # Static files live in public/ so Vercel can serve them from its CDN at /static.
 # Flask serves the same folder at the same URL when running locally or in Docker.
 PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
@@ -443,7 +446,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
             response = session.get(
                 config.reverse_geocoding_url,
                 params={"lat": latitude, "lon": longitude, "format": "json"},
-                headers={"User-Agent": "docker-weather-test/1.0"},
+                headers={"User-Agent": USER_AGENT},
                 timeout=config.upstream_timeout,
             )
             response.raise_for_status()

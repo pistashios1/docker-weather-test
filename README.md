@@ -3,6 +3,8 @@
 An easy-to-use weather dashboard for checking current conditions and the next
 twelve hours for any city or your current location.
 
+**Live demo: <https://docker-weather-test.vercel.app/>**
+
 - See your city on the map using your browser's location or manual search.
 - See temperature, wind, precipitation, humidity, UV index, and an hourly
   forecast.

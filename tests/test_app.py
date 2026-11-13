@@ -508,3 +508,18 @@ def test_footer_text_is_not_faded_below_contrast_requirements():
     footer_paragraph = re.search(r"footer p \{[^}]*\}", css).group(0)
 
     assert "opacity" not in footer_paragraph
+
+
+def test_reverse_location_identifies_the_app_to_nominatim():
+    response = Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"address": {"city": "Paris", "country": "France"}}
+
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
+        result = create_app(AppConfig()).test_client().get(
+            "/reverse-location?latitude=48.85&longitude=2.35"
+        )
+
+    assert result.status_code == 200
+    user_agent = get.call_args.kwargs["headers"]["User-Agent"]
+    assert user_agent.startswith("weather-lookup/") and "github.com/pistashios1" in user_agent
