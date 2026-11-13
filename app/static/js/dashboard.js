@@ -122,10 +122,21 @@ const renderForecast = () => {
   }
 
   const metric = isMetric();
+  const rawCurrentTime = typeof lastData.current?.time === "string" ? lastData.current.time : "";
+  const currentTime = rawCurrentTime.length >= 13 ? `${rawCurrentTime.slice(0, 13)}:00` : "";
+  const currentIndex = currentTime
+    ? Math.max(
+        0,
+        hourly.time.findIndex((time) => time >= currentTime)
+      )
+    : 0;
+  const times = hourly.time.slice(currentIndex, currentIndex + FORECAST_HOURS);
+  const temperatures = hourly.temperature_2m.slice(currentIndex, currentIndex + FORECAST_HOURS);
+  const weatherCodes = hourly.weather_code.slice(currentIndex, currentIndex + FORECAST_HOURS);
   forecast.replaceChildren(
-    ...hourly.time.slice(0, FORECAST_HOURS).map((time, index) => {
-      const condition = conditionForCode(Number(hourly.weather_code[index]));
-      const fahrenheit = hourly.temperature_2m[index];
+    ...times.map((time, index) => {
+      const condition = conditionForCode(Number(weatherCodes[index]));
+      const fahrenheit = temperatures[index];
       const temperature = metric ? fahrenheitToCelsius(fahrenheit) : fahrenheit;
 
       const card = document.createElement("div");
