@@ -1,16 +1,27 @@
 # Weather Lookup
 
-A small full-stack web app that looks up the weather for a place you choose and
-shows the basics: current conditions, temperature, wind, precipitation,
-humidity, UV index, and an hourly forecast for the next twelve hours.
+An easy-to-use weather dashboard for checking current conditions and the next
+twelve hours for any city or your current location.
 
-Search for a city, or let the browser find you. There is no account and no API
-key. A Flask backend does the lookups and serves the dashboard, and the whole
-thing runs in one Docker container.
+- Search for a city or use your browser's location.
+- See temperature, wind, precipitation, humidity, UV index, and an hourly
+  forecast.
+- Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
+- Run it locally with Python or Docker. No account or API key is required.
 
-![The weather dashboard showing New York with sample data: 64°F, partly cloudy, wind, humidity, UV index and an hourly forecast](docs/dashboard.png)
+![Weather Lookup dashboard showing current New York conditions, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
 
-*The dashboard, shown with sample data.*
+*The dashboard running locally with New York as the fallback location.*
+
+## Try it in two minutes
+
+```bash
+docker build -t weather-lookup .
+docker run --rm -p 5000:5000 weather-lookup
+```
+
+Open **<http://localhost:5000>** in your browser. For the Python option and
+other ways to run the project, see [Quick start](#quick-start).
 
 ## Contents
 
