@@ -97,7 +97,7 @@ Search results are ranked using what you typed, how close each place is to the
 place you are viewing, how large it is, and the places you picked before. Your
 recent picks are stored only in your browser.
 
-**What the numbers mean**
+### What the numbers mean
 
 - **Temperature and wind** are current readings for the chosen coordinates.
 - **Precipitation** is rain falling now, in millimetres.
