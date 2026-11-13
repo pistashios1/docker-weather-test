@@ -21,7 +21,7 @@ def test_index_serves_weather_frontend():
     result = app.test_client().get("/")
 
     assert result.status_code == 200
-    assert b"Website Lookup" in result.data
+    assert b"Weather Lookup" in result.data
 
 
 def test_location_returns_ip_coordinates():
