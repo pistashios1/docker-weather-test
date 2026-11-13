@@ -3,14 +3,14 @@
 An easy-to-use weather dashboard for checking current conditions and the next
 twelve hours for any city or your current location.
 
-- Search for a city or use your browser's location.
+- See your city on the map using your browser's location or manual search.
 - See temperature, wind, precipitation, humidity, UV index, and an hourly
   forecast.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
-- Run it locally with Python or Docker. No account or API key is required.
+- Runs locally with Python or Docker. No account or API key is required.
 
 ![Weather Lookup dashboard showing current New York conditions, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
-*The dashboard running locally (New York shown).*
+*The dashboard (New York shown).*
 
 ## Try it in two minutes
 
@@ -410,4 +410,4 @@ publishes it to the GitHub Container Registry.
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
 | Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `app/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
 
-This project is released under the license in [`LICENSE`](LICENSE).
+This project is released under the MIT license in [`LICENSE`](LICENSE).
