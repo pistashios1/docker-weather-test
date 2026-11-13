@@ -27,7 +27,7 @@ const [
 const $ = (selector) => document.querySelector(selector);
 
 const REQUEST_TIMEOUT_MS = 10000;
-const INITIAL_LOCATION_WAIT_MS = 1000;
+const IP_LOOKUP_TIMEOUT_MS = 4000;
 const LOCATION_CACHE_TTL_MS = 15 * 60 * 1000;
 const LOCATION_PROMPT_TIMEOUT_MS = 8000;
 const FORECAST_HOURS = 12;
@@ -218,6 +218,9 @@ const render = () => {
   const condition = conditionForCode(Number(current.weather_code));
 
   $("#location-name").textContent = selectedLocation.name;
+  const note = $("#location-note");
+  note.textContent = selectedLocation.note || "";
+  note.hidden = !selectedLocation.note;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
   $("#local-time").textContent = formatClock(current.time || lastFetchedAt);
   $("#utc-offset").textContent = formatUtcOffset(lastData.timezone);
@@ -332,7 +335,52 @@ const applyLocation = (location, updateSearchField = true) => {
   loadWeather();
 };
 
-const useDefaultLocation = () => applyLocation(DEFAULT_LOCATION, false);
+// The page never asks for browser location permission by itself. It first
+// estimates a position from the visitor's IP address (server side, /location)
+// and falls back to New York. This happens silently: the visitor just sees the
+// normal loading state, then weather. Permission is requested only from
+// useMyLocation.
+const useApproximateLocation = async () => {
+  const attempt = locationAttempt;
+  setBusy(true);
+  setState("loading");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS);
+  let location = DEFAULT_LOCATION;
+  try {
+    const data = await fetchJson("/location", controller.signal);
+    if (Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
+      const name = typeof data.name === "string" ? data.name.trim() : "";
+      location = {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        name: name || "Your area",
+      };
+    }
+  } catch {
+    // Unavailable (private address, provider down, slow): use the fallback.
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (attempt !== locationAttempt) return; // The visitor chose a place meanwhile.
+  applyLocation(location, false);
+};
+
+// A precise lookup failed. Keep what is on screen and say why.
+const keepCurrentLocation = (reason) => {
+  if (!lastData || !selectedLocation) {
+    useApproximateLocation();
+    return;
+  }
+  const message = `${reason} Still showing ${selectedLocation.name}.`;
+  selectedLocation = { ...selectedLocation, note: message };
+  setBusy(false);
+  render();
+  setState("ready");
+  announce(message);
+};
 
 const readUserLocation = () => {
   try {
@@ -396,7 +444,7 @@ const resolveBrowserLocation = async ({ coords }, attempt) => {
   applyLocation(location, false);
 };
 
-const useMyLocation = (initialLoad = false) => {
+const useMyLocation = () => {
   searchInput.value = "";
   if (useCachedUserLocation()) return;
 
@@ -405,10 +453,12 @@ const useMyLocation = (initialLoad = false) => {
   setState("locating");
 
   if (!navigator.geolocation) {
-    useDefaultLocation();
+    keepCurrentLocation("Your browser cannot share its location.");
     return;
   }
 
+  // This is the only place the browser's permission prompt is triggered, and
+  // only after the visitor clicks "Use my location".
   announce("Requesting your location…");
 
   let settled = false;
@@ -419,20 +469,19 @@ const useMyLocation = (initialLoad = false) => {
     if (attempt !== locationAttempt) return;
     handler(...args, attempt);
   };
-  const promptTimer = setTimeout(
-    settle(useDefaultLocation),
-    initialLoad ? INITIAL_LOCATION_WAIT_MS : LOCATION_PROMPT_TIMEOUT_MS
-  );
+  const fail = (error) =>
+    keepCurrentLocation(
+      error && error.code === 1
+        ? "Location permission was not granted."
+        : "Your precise location could not be found."
+    );
+  const promptTimer = setTimeout(settle(fail), LOCATION_PROMPT_TIMEOUT_MS);
 
-  navigator.geolocation.getCurrentPosition(
-    settle(resolveBrowserLocation),
-    settle(useDefaultLocation),
-    {
-      enableHighAccuracy: false,
-      timeout: LOCATION_PROMPT_TIMEOUT_MS,
-      maximumAge: 300000,
-    }
-  );
+  navigator.geolocation.getCurrentPosition(settle(resolveBrowserLocation), settle(fail), {
+    enableHighAccuracy: false,
+    timeout: LOCATION_PROMPT_TIMEOUT_MS,
+    maximumAge: 300000,
+  });
 };
 
 const refreshWeather = () => {
@@ -517,4 +566,4 @@ if (storedUnits === "metric" || storedUnits === "imperial") {
 }
 setMapAnimation(readStorage(MAP_STORAGE_KEY) !== "off");
 
-if (!useCachedUserLocation()) useMyLocation(true);
+if (!useCachedUserLocation()) useApproximateLocation();

@@ -43,7 +43,8 @@ mimetypes.add_type("font/woff2", ".woff2")
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
-IP_LOCATION_URL = "https://ipapi.co/json/"
+# {ip} is replaced with the visitor's public address.
+IP_LOCATION_URL = "https://ipapi.co/{ip}/json/"
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 REVERSE_GEOCODING_URL = "https://nominatim.openstreetmap.org/reverse"
 
@@ -55,6 +56,12 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; img-src 'self' data:; object-src 'none'; "
     "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 )
+
+# IP-based locations change rarely and the provider's free tier is small.
+IP_LOCATION_CACHE_TTL = 3600
+
+# Nominatim's usage policy asks for an identifying User-Agent with a contact.
+USER_AGENT = "weather-lookup/1.0 (+https://github.com/pistashios1/docker-weather-test)"
 
 # Static files live in public/ so Vercel can serve them from its CDN at /static.
 # Flask serves the same folder at the same URL when running locally or in Docker.
@@ -286,6 +293,14 @@ def _asset_version(static_dir: Path) -> str:
     return os.environ.get("VERCEL_DEPLOYMENT_ID") or "dev"
 
 
+def _public_ip(value: str) -> str | None:
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return None
+    return str(address) if address.is_global else None
+
+
 def _client_address(trust_vercel_header: bool) -> str:
     if trust_vercel_header:
         candidate = request.headers.get(VERCEL_CLIENT_IP_HEADER, "").split(",")[0].strip()
@@ -304,7 +319,9 @@ def create_app(config: AppConfig | None = None) -> Flask:
     cache = TTLCache(config.cache_size)
     limiter = RateLimiter(config.rate_limit, config.rate_window)
     search_cache = TTLCache(config.cache_size)
+    location_cache = TTLCache(config.cache_size)
     app.extensions["weather_cache"] = cache
+    app.extensions["location_cache"] = location_cache
     app.extensions["rate_limiter"] = limiter
     app.extensions["search_cache"] = search_cache
 
@@ -353,13 +370,30 @@ def create_app(config: AppConfig | None = None) -> Flask:
 
     @app.get("/location")
     def location():
+        """Approximate the visitor's position from their IP address.
+
+        The visitor's address (not the server's) is sent to the IP location
+        provider. Private and local addresses cannot be located.
+        """
+        url = config.ip_location_url
+        address = None
+        if "{ip}" in url:
+            address = _public_ip(_client_address(config.trust_vercel_client_ip))
+            if address is None:
+                return error_response("location unavailable for this address", 404)
+            url = url.replace("{ip}", address)
+        cache_key = ("ip", address or url)
+        cached = location_cache.get(cache_key, IP_LOCATION_CACHE_TTL)
+        if cached is not None:
+            return jsonify({**cached, "source": "IP location"})
         try:
-            response = session.get(config.ip_location_url, timeout=config.upstream_timeout)
+            response = session.get(url, timeout=config.upstream_timeout)
             response.raise_for_status()
             coordinates = validate_location_response(response.json())
         except (requests.RequestException, ValueError, TypeError, InvalidUpstreamPayload):
             app.logger.exception("IP location request failed")
             return error_response("location service unavailable", 502)
+        location_cache.set(cache_key, coordinates)
         return jsonify({**coordinates, "source": "IP location"})
 
     @app.get("/healthz")
@@ -443,7 +477,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
             response = session.get(
                 config.reverse_geocoding_url,
                 params={"lat": latitude, "lon": longitude, "format": "json"},
-                headers={"User-Agent": "docker-weather-test/1.0"},
+                headers={"User-Agent": USER_AGENT},
                 timeout=config.upstream_timeout,
             )
             response.raise_for_status()

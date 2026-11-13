@@ -24,7 +24,7 @@ def test_index_serves_weather_frontend():
     assert b"Weather Lookup" in result.data
 
 
-def test_location_returns_ip_coordinates():
+def _ip_location_response():
     response = Mock()
     response.json.return_value = {
         "latitude": "40.71",
@@ -32,9 +32,16 @@ def test_location_returns_ip_coordinates():
         "city": "New York",
         "country_name": "United States",
     }
+    return response
 
-    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
-        result = app.test_client().get("/location")
+
+def _location_client(**overrides):
+    return create_app(AppConfig(**overrides)).test_client()
+
+
+def test_location_looks_up_the_visitors_address():
+    with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+        result = _location_client().get("/location", environ_overrides={"REMOTE_ADDR": "8.8.8.8"})
 
     assert result.status_code == 200
     assert result.get_json() == {
@@ -43,12 +50,67 @@ def test_location_returns_ip_coordinates():
         "name": "New York, United States",
         "source": "IP location",
     }
-    get.assert_called_once_with("https://ipapi.co/json/", timeout=5)
+    get.assert_called_once_with("https://ipapi.co/8.8.8.8/json/", timeout=5)
+
+
+def test_location_uses_the_vercel_client_ip_when_trusted():
+    client = _location_client(trust_vercel_client_ip=True)
+
+    with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+        client.get(
+            "/location",
+            headers={"X-Vercel-Forwarded-For": "1.1.1.1"},
+            environ_overrides={"REMOTE_ADDR": "10.0.0.1"},
+        )
+
+    get.assert_called_once_with("https://ipapi.co/1.1.1.1/json/", timeout=5)
+
+
+def test_location_ignores_a_forged_forwarded_header_when_not_trusted():
+    with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+        _location_client().get(
+            "/location",
+            headers={"X-Vercel-Forwarded-For": "1.1.1.1"},
+            environ_overrides={"REMOTE_ADDR": "8.8.8.8"},
+        )
+
+    get.assert_called_once_with("https://ipapi.co/8.8.8.8/json/", timeout=5)
+
+
+@pytest.mark.parametrize("address", ["127.0.0.1", "10.1.2.3", "192.168.0.9", "::1", "169.254.1.1"])
+def test_location_does_not_look_up_private_addresses(address):
+    with patch("app.weather_app.requests.Session.get") as get:
+        result = _location_client().get("/location", environ_overrides={"REMOTE_ADDR": address})
+
+    assert result.status_code == 404
+    assert result.get_json() == {"error": "location unavailable for this address"}
+    get.assert_not_called()
+
+
+def test_location_is_cached_per_address():
+    client = _location_client()
+
+    with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+        for _ in range(3):
+            client.get("/location", environ_overrides={"REMOTE_ADDR": "8.8.8.8"})
+        client.get("/location", environ_overrides={"REMOTE_ADDR": "8.8.4.4"})
+
+    assert get.call_count == 2
+
+
+def test_location_supports_a_fixed_provider_url_without_a_placeholder():
+    client = _location_client(ip_location_url="https://example.test/where")
+
+    with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+        result = client.get("/location")
+
+    assert result.status_code == 200
+    get.assert_called_once_with("https://example.test/where", timeout=5)
 
 
 def test_location_reports_lookup_failure():
     with patch("app.weather_app.requests.Session.get", side_effect=requests.RequestException):
-        result = app.test_client().get("/location")
+        result = _location_client().get("/location", environ_overrides={"REMOTE_ADDR": "8.8.8.8"})
 
     assert result.status_code == 502
     assert result.get_json() == {"error": "location service unavailable"}
@@ -508,3 +570,38 @@ def test_footer_text_is_not_faded_below_contrast_requirements():
     footer_paragraph = re.search(r"footer p \{[^}]*\}", css).group(0)
 
     assert "opacity" not in footer_paragraph
+
+
+def test_reverse_location_identifies_the_app_to_nominatim():
+    response = Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"address": {"city": "Paris", "country": "France"}}
+
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
+        result = create_app(AppConfig()).test_client().get(
+            "/reverse-location?latitude=48.85&longitude=2.35"
+        )
+
+    assert result.status_code == 200
+    user_agent = get.call_args.kwargs["headers"]["User-Agent"]
+    assert user_agent.startswith("weather-lookup/") and "github.com/pistashios1" in user_agent
+
+
+def test_page_does_not_request_geolocation_permission_on_load():
+    script = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+    start = script[script.index("/* ---------- Start ---------- */"):]
+
+    assert "useApproximateLocation()" in start
+    assert "useMyLocation" not in start
+    assert "getCurrentPosition" not in start
+    # The only caller of the permission prompt is the click handler's function.
+    assert script.count("getCurrentPosition(") == 1
+    assert 'locationButton.addEventListener("click"' in script
+
+
+def test_ip_lookup_is_silent():
+    script = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+    lookup = script[script.index("const useApproximateLocation"):script.index("// A precise lookup failed")]
+
+    assert "announce(" not in lookup
+    assert "note" not in lookup
