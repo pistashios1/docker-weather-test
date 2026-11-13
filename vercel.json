@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "dev": false
+    }
+  },
   "functions": {
     "app/weather_app.py": {
       "excludeFiles": "{tests/**,docs/**,scripts/**,.github/**,requirements-dev.txt}"
