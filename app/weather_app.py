@@ -1,10 +1,13 @@
 import mimetypes
+import hashlib
+import ipaddress
 import os
 import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
 from math import asin, cos, log1p, radians, sin, sqrt
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -53,6 +56,15 @@ CONTENT_SECURITY_POLICY = (
     "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 )
 
+# Static files live in public/ so Vercel can serve them from its CDN at /static.
+# Flask serves the same folder at the same URL when running locally or in Docker.
+PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
+STATIC_DIR = PUBLIC_DIR / "static"
+
+# Vercel sets this header itself, overwriting anything the client sends. It must
+# not be trusted anywhere else, where a client could set it.
+VERCEL_CLIENT_IP_HEADER = "X-Vercel-Forwarded-For"
+
 RATE_LIMIT_EXEMPT_ENDPOINTS = frozenset({"healthz", "readyz", "static"})
 STATIC_CACHE_MAX_AGE = 86400
 
@@ -71,6 +83,7 @@ class AppConfig:
     temperature_unit: str = "fahrenheit"
     wind_speed_unit: str = "mph"
     search_cache_ttl: int = 300
+    trust_vercel_client_ip: bool = False
 
     @classmethod
     def from_env(cls):
@@ -89,6 +102,12 @@ class AppConfig:
             raise ValueError("TEMPERATURE_UNIT must be celsius or fahrenheit")
         if wind_speed_unit not in {"kmh", "mph", "ms"}:
             raise ValueError("WIND_SPEED_UNIT must be kmh, mph, or ms")
+        trust_vercel = os.environ.get("TRUST_VERCEL_CLIENT_IP")
+        if trust_vercel is None:
+            # Vercel sets VERCEL=1 in every deployment.
+            trust_vercel = "true" if os.environ.get("VERCEL") == "1" else "false"
+        if trust_vercel.lower() not in {"true", "false"}:
+            raise ValueError("TRUST_VERCEL_CLIENT_IP must be true or false")
         return cls(
             open_meteo_url=os.environ.get("OPEN_METEO_URL", OPEN_METEO_URL),
             ip_location_url=os.environ.get("IP_LOCATION_URL", IP_LOCATION_URL),
@@ -104,6 +123,7 @@ class AppConfig:
             temperature_unit=temperature_unit,
             wind_speed_unit=wind_speed_unit,
             search_cache_ttl=positive_int("SEARCH_CACHE_TTL", 300),
+            trust_vercel_client_ip=trust_vercel.lower() == "true",
         )
 
 
@@ -134,6 +154,8 @@ class TTLCache:
 
 
 class RateLimiter:
+    MAX_CLIENTS = 10_000
+
     def __init__(self, limit: int, window: int):
         self.limit = limit
         self.window = window
@@ -153,7 +175,18 @@ class RateLimiter:
                 return False
             timestamps.append(now)
             self._requests[client] = timestamps
+            if len(self._requests) > self.MAX_CLIENTS:
+                self._prune(now)
             return True
+
+    def _prune(self, now: float) -> None:
+        # Forget clients whose requests have all aged out so memory stays bounded.
+        for client in [
+            client
+            for client, stamps in self._requests.items()
+            if not stamps or now - stamps[-1] >= self.window
+        ]:
+            del self._requests[client]
 
 
 def _session() -> requests.Session:
@@ -234,10 +267,39 @@ def _search_score(
     )
 
 
+def _asset_version(static_dir: Path) -> str:
+    """A stable label for the current static files, used to bust browser caches.
+
+    It is derived from the file contents, so it only changes when an asset does
+    (a random value per process would change on every serverless cold start).
+    """
+    explicit = os.environ.get("ASSET_VERSION")
+    if explicit:
+        return explicit
+    digest = hashlib.sha256()
+    files = sorted(path for path in static_dir.rglob("*") if path.is_file())
+    for path in files:
+        digest.update(path.relative_to(static_dir).as_posix().encode())
+        digest.update(path.read_bytes())
+    if files:
+        return digest.hexdigest()[:32]
+    return os.environ.get("VERCEL_DEPLOYMENT_ID") or "dev"
+
+
+def _client_address(trust_vercel_header: bool) -> str:
+    if trust_vercel_header:
+        candidate = request.headers.get(VERCEL_CLIENT_IP_HEADER, "").split(",")[0].strip()
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            pass  # Missing or malformed: fall back to the connection address.
+    return request.remote_addr or "unknown"
+
+
 def create_app(config: AppConfig | None = None) -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
     config = config or AppConfig.from_env()
-    app.config["ASSET_VERSION"] = uuid.uuid4().hex
+    app.config["ASSET_VERSION"] = _asset_version(STATIC_DIR)
     session = _session()
     cache = TTLCache(config.cache_size)
     limiter = RateLimiter(config.rate_limit, config.rate_window)
@@ -255,7 +317,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
         g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         g.request_started = time.monotonic()
         if request.endpoint not in RATE_LIMIT_EXEMPT_ENDPOINTS and not limiter.allowed(
-            request.remote_addr or "unknown"
+            _client_address(config.trust_vercel_client_ip)
         ):
             return error_response(
                 "rate limit exceeded",

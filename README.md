@@ -114,7 +114,7 @@ recent picks are stored only in your browser.
 ## How it works
 
 ```text
-Browser (app/static/ + app/templates/)
+Browser (public/static/ + app/templates/)
    |
    |  GET /search           find a city by name
    |  GET /weather          current conditions + hourly forecast
@@ -255,15 +255,17 @@ Set environment variables before starting the app. All are optional.
 | `UPSTREAM_TIMEOUT` | `5` | Seconds to wait for a provider. |
 | `RATE_LIMIT` | `60` | Requests allowed per client in each window. |
 | `RATE_WINDOW` | `60` | Length of the rate-limit window, in seconds. |
+| `TRUST_VERCEL_CLIENT_IP` | `true` on Vercel, otherwise `false` | Identify visitors by Vercel's `X-Vercel-Forwarded-For` header when rate limiting. Leave it off anywhere else: a client could forge the header. |
+| `ASSET_VERSION` | hash of `public/static` | Label added to asset URLs (`?v=`) to refresh browser caches. Set it only to force a refresh. |
 | `OPEN_METEO_URL` | Open-Meteo forecast | Weather provider URL. |
 | `GEOCODING_URL` | Open-Meteo geocoding | City search provider URL. |
 | `REVERSE_GEOCODING_URL` | Nominatim | Place-name provider URL. |
 | `IP_LOCATION_URL` | ipapi.co | IP location provider URL. |
 
 Static dashboard assets are served with a one-day browser cache and
-`immutable` caching. Their URLs include a process-specific version, so a
-server restart automatically causes the browser to request the current assets
-again without requiring manual cache clearing.
+`immutable` caching. Their URLs include a version taken from the files'
+contents, so browsers fetch new assets as soon as one changes and keep reusing
+them otherwise, including across restarts and serverless cold starts.
 
 > **Keep the unit defaults if you use the dashboard.** The page expects °F and
 > mph from the API and does the metric conversion itself. If you set
@@ -315,7 +317,7 @@ the limit.
 `WIND_SPEED_UNIT` are not set (see [Configuration](#configuration)).
 
 **The page is unstyled or blank.** The CSS and JavaScript load from `/static`.
-If you build your own image, make sure it includes the `app/static` folder.
+If you build your own image, make sure it copies the `public` folder (the Dockerfile does).
 
 ## Development
 
@@ -327,14 +329,16 @@ app/
   api_contracts.py         Validation of provider responses and API shapes
   templates/
     weather_dashboard.html Page markup
-  static/
-    css/dashboard.css      Styles and design tokens
-    js/dashboard.js        Page logic
-    js/search-box.js       Accessible city search (ARIA combobox)
-    js/format.js           Units, weather-code labels, number formatting
-    js/storage.js          Safe localStorage wrapper
-    img/world-map.svg      Background map (generated, see below)
-    fonts/                 Space Grotesk (self-hosted) and its licence
+public/static/             Served at /static (by Vercel's CDN, or by Flask locally)
+  css/dashboard.css        Styles and design tokens
+  js/dashboard.js          Page logic
+  js/search-box.js         Accessible city search (ARIA combobox)
+  js/format.js             Units, weather-code labels, number formatting
+  js/storage.js            Safe localStorage wrapper
+  img/world-map.svg        Background map (generated, see below)
+  fonts/                   Space Grotesk (self-hosted) and its licence
+vercel.json                Vercel function and static-file cache settings
+pyproject.toml             Python version, dependencies and Vercel entrypoint
 scripts/
   build-world-map.mjs      Generates the map from Natural Earth data
 tests/test_app.py         Test suite
@@ -354,7 +358,7 @@ they run offline. GitHub Actions runs them on every push and pull request.
 
 ### Change the background map
 
-`app/static/img/world-map.svg` is an outline of real coastlines (Natural Earth
+`public/static/img/world-map.svg` is an outline of real coastlines (Natural Earth
 1:110m data, equirectangular projection, 84°N to 58°S) that scrolls slowly
 behind the page. It is generated, not drawn. To rebuild it:
 
@@ -386,12 +390,46 @@ docker run -d --name weather-lookup -p 5000:5000 --restart unless-stopped weathe
 docker inspect --format='{{json .State.Health}}' weather-lookup
 ```
 
+### Deploying to Vercel
+
+The repository deploys to Vercel as it is: `pyproject.toml` names the entrypoint
+(`app.weather_app:app`), `vercel.json` sets static-file headers, and everything
+in `public/` is served from Vercel's CDN, so CSS, JavaScript, fonts and the map
+never start the Flask function. No environment variables are required.
+
+- **Rate limiting uses the visitor's address.** On Vercel the app reads
+  `X-Vercel-Forwarded-For`, which Vercel sets itself, so each visitor gets
+  their own limit instead of everyone sharing the proxy's. The header is
+  trusted only when `VERCEL=1` (set by Vercel) or `TRUST_VERCEL_CLIENT_IP=true`.
+- **Limits are per function instance.** The cache and limiter live in memory,
+  and Vercel can run several instances, so the limit is approximate. That is
+  fine for a small personal site; use a shared store if you need exact limits.
+- **Keep static files in `public/static`.** Flask's own static route is only for
+  local use and Docker.
+- **`/location` is not useful on Vercel.** It looks up the *server's* IP, which
+  is a data centre. The dashboard does not call it.
+
+Before each deploy:
+
+- [ ] `python -m pytest` passes and CI is green on the branch.
+- [ ] `requirements.txt` and `pyproject.toml` list the same versions.
+- [ ] Deploy a preview, then check `/healthz`, search for a city, and load the
+      weather for a place.
+- [ ] In the browser's network tab, `/static/...` files come from the CDN
+      (`x-vercel-cache` is present) and have `Cache-Control: public, max-age=86400, immutable`.
+- [ ] Promote to production, watch the runtime logs for 5xx and 429 responses
+      for a few minutes.
+- [ ] Rollback: promote the previous deployment from the Vercel dashboard
+      (Deployments, then Promote), or revert the commit.
+
+### Deploying with Docker
+
 Things to know before putting it on the internet:
 
 - **TLS:** the container serves plain HTTP. Terminate HTTPS in a reverse proxy.
 - **Rate limiting is per process and per client address.** Behind a reverse
   proxy every visitor can look like the proxy's address, so enforce limits at
-  the proxy or gateway as well.
+  the proxy or gateway as well. Do not set `TRUST_VERCEL_CLIENT_IP` here.
 - **The cache and rate limiter are in memory.** They are not shared between
   Gunicorn workers or between containers. Use a shared store such as Redis if
   you scale out.
@@ -408,6 +446,6 @@ publishes it to the GitHub Container Registry.
 | Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
 | IP location (`/location` only) | [ipapi.co](https://ipapi.co/) | Rate limited on the free tier. |
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
-| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `app/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
+| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `public/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
 
 This project is released under the MIT license in [`LICENSE`](LICENSE).

@@ -4,5 +4,20 @@
     "app/weather_app.py": {
       "excludeFiles": "{tests/**,docs/**,scripts/**,.github/**,requirements-dev.txt}"
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, immutable"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
 }
