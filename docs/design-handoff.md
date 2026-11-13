@@ -89,7 +89,7 @@ A new search cancels the previous one. Picking an option fills the field with th
 
 ### Other controls
 
-- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. Falls back to New York if permission is denied or unanswered for 8 seconds.
+- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. The first successful lookup is cached as `user-location`; later uses and refreshes reuse it without reopening the permission prompt. Falls back to New York if permission is denied; it keeps waiting while the browser permission prompt is open.
 - **Unit toggle**: radio group styled as a segmented pill. Remembered in `localStorage` (`weather-units`). Converting is done in the browser from °F and mph.
 - **Animate background**: switch (`role="switch"`) in the footer. Remembered (`weather-map-animation`). Hidden when the system asks for reduced motion.
 

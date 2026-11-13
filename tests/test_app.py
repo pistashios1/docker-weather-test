@@ -90,7 +90,18 @@ def test_search_rejects_short_queries():
     result = app.test_client().get("/search?q=")
 
     assert result.status_code == 400
-    assert "at least 1" in result.get_json()["error"]
+    assert "at least 2" in result.get_json()["error"]
+
+
+def test_search_returns_no_results_for_unknown_name():
+    response = Mock()
+    response.json.return_value = {"generationtime_ms": 0.1}
+
+    with patch("app.weather_app.requests.Session.get", return_value=response):
+        result = app.test_client().get("/search?q=not-a-real-place")
+
+    assert result.status_code == 200
+    assert result.get_json() == {"results": []}
 
 
 def test_search_scores_relevance_before_proximity_and_population():

@@ -14,11 +14,11 @@ import { readStorage, writeStorage } from "./storage.js";
 const $ = (selector) => document.querySelector(selector);
 
 const REQUEST_TIMEOUT_MS = 10000;
-const PERMISSION_WAIT_MS = 8000;
 const FORECAST_HOURS = 12;
 const UNIT_STORAGE_KEY = "weather-units";
 const SEARCH_AFFINITY_KEY = "weather-search-affinity";
 const MAP_STORAGE_KEY = "weather-map-animation";
+const USER_LOCATION_KEY = "user-location";
 const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.006, name: "New York" };
 
 const form = $("#weather-form");
@@ -271,21 +271,70 @@ const applyLocation = (location, updateSearchField = true) => {
 
 const useDefaultLocation = () => applyLocation(DEFAULT_LOCATION, false);
 
+const readUserLocation = () => {
+  try {
+    const value = JSON.parse(readStorage(USER_LOCATION_KEY) || "null");
+    const name = typeof value?.name === "string" ? value.name.trim() : "";
+    return value &&
+      Number.isFinite(value.latitude) &&
+      Number.isFinite(value.longitude) &&
+      name &&
+      !["Your location", "Current location", "Location unavailable"].includes(name)
+      ? { ...value, name }
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const rememberUserLocation = (location) => {
+  writeStorage(USER_LOCATION_KEY, JSON.stringify(location));
+};
+
+const sameLocation = (left, right) =>
+  left &&
+  right &&
+  left.latitude === right.latitude &&
+  left.longitude === right.longitude;
+
+const useCachedUserLocation = () => {
+  const location = readUserLocation();
+  if (!location) return false;
+
+  if (sameLocation(selectedLocation, location) && lastData) {
+    setBusy(false);
+    setState("ready");
+    announce(`Showing weather for ${location.name}.`);
+    return true;
+  }
+
+  applyLocation(location, false);
+  return true;
+};
+
 const resolveBrowserLocation = async ({ coords }, attempt) => {
-  let name = "Your location";
+  const cached = readUserLocation();
+  let name = sameLocation(cached, coords) ? cached.name : "";
   try {
     const data = await fetchJson(
       `/reverse-location?latitude=${coords.latitude}&longitude=${coords.longitude}`
     );
-    name = data.name || name;
+    const resolvedName = typeof data.name === "string" ? data.name.trim() : "";
+    if (resolvedName) name = resolvedName;
   } catch {
     // Weather still works when reverse geocoding is unavailable.
   }
+  if (!name) name = "Your location";
+  const location = { latitude: coords.latitude, longitude: coords.longitude, name };
+  rememberUserLocation(location);
   if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
-  applyLocation({ latitude: coords.latitude, longitude: coords.longitude, name }, false);
+  applyLocation(location, false);
 };
 
 const useMyLocation = () => {
+  searchInput.value = "";
+  if (useCachedUserLocation()) return;
+
   const attempt = locationAttempt;
   setBusy(true);
   setState("locating");
@@ -297,23 +346,28 @@ const useMyLocation = () => {
 
   announce("Requesting your location…");
 
-  // The browser's own timeout only starts after permission is granted, so an
-  // unanswered prompt would wait forever. Fall back to New York instead.
   let settled = false;
   const settle = (handler) => (...args) => {
     if (settled) return;
     settled = true;
-    clearTimeout(promptTimer);
     if (attempt !== locationAttempt) return;
     handler(...args, attempt);
   };
-  const promptTimer = setTimeout(settle(useDefaultLocation), PERMISSION_WAIT_MS);
 
   navigator.geolocation.getCurrentPosition(
     settle(resolveBrowserLocation),
     settle(useDefaultLocation),
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    { enableHighAccuracy: false, maximumAge: 300000 }
   );
+};
+
+const refreshWeather = () => {
+  const location = readUserLocation();
+  if (location && !sameLocation(selectedLocation, location)) {
+    applyLocation(location, false);
+  } else {
+    loadWeather();
+  }
 };
 
 /* ---------- Search ---------- */
@@ -353,7 +407,7 @@ locationButton.addEventListener("click", () => {
 });
 
 retryButton.addEventListener("click", () => {
-  if (!busy) loadWeather();
+  if (!busy) refreshWeather();
 });
 
 unitRadios.forEach((radio) => {
@@ -387,4 +441,4 @@ if (storedUnits === "metric" || storedUnits === "imperial") {
 }
 setMapAnimation(readStorage(MAP_STORAGE_KEY) !== "off");
 
-useMyLocation();
+if (!useCachedUserLocation()) useDefaultLocation();

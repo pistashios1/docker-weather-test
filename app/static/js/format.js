@@ -33,7 +33,7 @@ const CONDITIONS = [
   [(code) => code === 1, "Mainly clear", "🌤️", "clear"],
   [(code) => code === 2, "Partly cloudy", "⛅", "cloudy"],
   [(code) => code === 3, "Overcast", "☁️", "cloudy"],
-  [(code) => code === 45 || code === 48, "Foggy", "🌫️", "fog"],
+  [(code) => code === 45 || code === 48, "Foggy", "🌁", "fog"],
   [(code) => code >= 51 && code <= 57, "Drizzle", "🌦️", "rain"],
   [(code) => (code >= 61 && code <= 67) || (code >= 80 && code <= 82), "Rain", "🌧️", "rain"],
   [(code) => (code >= 71 && code <= 77) || (code >= 85 && code <= 86), "Snow", "🌨️", "snow"],

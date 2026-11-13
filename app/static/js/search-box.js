@@ -1,19 +1,40 @@
 // Accessible location search: an ARIA 1.2 combobox with a listbox popup.
 //
 // Keyboard: ArrowDown/ArrowUp move through suggestions, Enter picks the
-// highlighted one (or searches when none is highlighted), Escape closes.
+// highlighted one or the first result, Escape closes.
 // Focus stays in the text field; the highlighted option is exposed to
 // assistive technology through aria-activedescendant.
 
 const DEBOUNCE_MS = 250;
+const MIN_QUERY_LENGTH = 2;
+const SEARCH_CACHE_SIZE = 3;
+const SEARCH_LIMIT = 10;
+const SEARCH_WINDOW_MS = 5000;
+const LOCKOUT_STEP_MS = 2000;
+const MAX_LOCKOUT_MS = 60000;
 
 export function createSearchBox({ input, popup, message, list, search, onSelect, announce }) {
   let results = [];
   let activeIndex = -1;
   let debounceTimer = null;
   let controller = null;
+  let cachedResults = [];
+  let searchTimestamps = [];
+  let lockoutCount = 0;
+  let lockoutUntil = 0;
 
   const isOpen = () => !popup.hidden;
+  const normalizeQuery = (query) => query.trim().toLocaleLowerCase();
+  const cachedResultsFor = (query) =>
+    cachedResults.find((entry) => entry.query === normalizeQuery(query))?.results;
+
+  const rememberResults = (query, items) => {
+    const normalizedQuery = normalizeQuery(query);
+    cachedResults = [
+      { query: normalizedQuery, results: items },
+      ...cachedResults.filter((entry) => entry.query !== normalizedQuery),
+    ].slice(0, SEARCH_CACHE_SIZE);
+  };
 
   const setActive = (index) => {
     activeIndex = index;
@@ -97,6 +118,38 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
       close();
       return;
     }
+    if (query.length < MIN_QUERY_LENGTH) {
+      if (controller) controller.abort();
+      showMessage("Type at least 2 characters to search.");
+      return;
+    }
+
+    const cached = cachedResultsFor(query);
+    if (cached) {
+      if (controller) controller.abort();
+      render(cached);
+      return;
+    }
+
+    const now = Date.now();
+    if (now < lockoutUntil) return;
+    searchTimestamps = searchTimestamps.filter(
+      (timestamp) => now - timestamp < SEARCH_WINDOW_MS
+    );
+    if (searchTimestamps.length >= SEARCH_LIMIT) {
+      lockoutCount += 1;
+      const duration = Math.min(LOCKOUT_STEP_MS * lockoutCount, MAX_LOCKOUT_MS);
+      lockoutUntil = now + duration;
+      searchTimestamps = [];
+      close();
+      if (lockoutCount >= 5) {
+        const seconds = Math.ceil(duration / 1000);
+        showMessage(`Please wait ${seconds} seconds before searching again.`);
+        announce(`Search paused for ${seconds} seconds.`);
+      }
+      return;
+    }
+    searchTimestamps.push(now);
 
     if (controller) controller.abort();
     controller = new AbortController();
@@ -104,7 +157,9 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
     showMessage("Searching places…");
 
     try {
-      render(await search(query, mine.signal));
+      const items = await search(query, mine.signal);
+      rememberResults(query, items);
+      render(items);
     } catch (error) {
       if (error.name === "AbortError" || controller !== mine) return;
       showMessage("Search is unavailable right now. Try again in a moment.");
@@ -113,7 +168,11 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
 
   input.addEventListener("input", () => {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(run, DEBOUNCE_MS);
+    if (cachedResultsFor(input.value)) {
+      run();
+    } else {
+      debounceTimer = setTimeout(run, DEBOUNCE_MS);
+    }
   });
 
   input.addEventListener("keydown", (event) => {
@@ -123,9 +182,9 @@ export function createSearchBox({ input, popup, message, list, search, onSelect,
       if (!isOpen()) open();
       const step = event.key === "ArrowDown" ? 1 : -1;
       setActive((activeIndex + step + results.length) % results.length);
-    } else if (event.key === "Enter" && isOpen() && activeIndex >= 0) {
+    } else if (event.key === "Enter" && isOpen() && results.length) {
       event.preventDefault();
-      choose(activeIndex);
+      choose(activeIndex >= 0 ? activeIndex : 0);
     } else if (event.key === "Escape" && isOpen()) {
       event.preventDefault();
       close();

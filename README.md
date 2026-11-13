@@ -90,8 +90,12 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
 
-If you deny the location prompt, or do not answer it within eight seconds, the
-dashboard shows **New York** so there is always something on screen.
+If you deny the location prompt, the dashboard shows **New York** so there is
+always something on screen. While the permission prompt is open, the dashboard
+continues waiting for your choice. After a successful location lookup, the
+coordinates and resolved name are cached in this browser as `user-location`;
+later uses and refreshes reuse that client-side location without requesting
+permission again.
 
 Search results are ranked using what you typed, how close each place is to the
 place you are viewing, how large it is, and the places you picked before. Your
@@ -289,10 +293,9 @@ reverse proxy in front.
 `PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
 **The page shows New York instead of my location.** The browser's location
-permission was denied, dismissed, or did not answer in eight seconds. Allow
-location for the site and press **Use my location**. Location needs a secure
-context: `http://localhost` works, but a plain-HTTP address on another machine
-does not.
+permission was denied or dismissed. Allow location for the site and press **Use
+my location**. Location needs a secure context: `http://localhost` works, but a
+plain-HTTP address on another machine does not.
 
 **"Weather service unavailable" (`502`).** The server could not reach the
 provider, or got an unexpected reply. Check the server's internet access and

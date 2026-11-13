@@ -300,8 +300,8 @@ def create_app(config: AppConfig | None = None) -> Flask:
     @app.get("/search")
     def search():
         query = request.args.get("q", "").strip()
-        if not query:
-            return error_response("search query must contain at least 1 character", 400)
+        if len(query) < 2:
+            return error_response("search query must contain at least 2 characters", 400)
         latitude = request.args.get("latitude", type=float)
         longitude = request.args.get("longitude", type=float)
         affinity = {

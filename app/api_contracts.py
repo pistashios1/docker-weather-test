@@ -41,7 +41,13 @@ def validate_location_response(data: Any) -> dict[str, Any]:
 
 
 def validate_search_response(data: Any) -> list[dict[str, Any]]:
-    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+    if not isinstance(data, dict):
+        raise InvalidUpstreamPayload("location search payload is invalid")
+    if "results" not in data:
+        if "error" not in data:
+            return []
+        raise InvalidUpstreamPayload("location search payload is invalid")
+    if not isinstance(data["results"], list):
         raise InvalidUpstreamPayload("location search payload is invalid")
     results = []
     for item in data["results"][:10]:
