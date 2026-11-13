@@ -47,15 +47,60 @@ export const conditionForCode = (code) => {
     : { label: "Weather", icon: "🌡️", key: "unknown" };
 };
 
-export const formatHour = (isoTime) => {
+const parseApiLocalTime = (isoTime) => {
+  const match = typeof isoTime === "string"
+    ? isoTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+    : null;
+  if (!match) return null;
+  return new Date(Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5])
+  ));
+};
+
+const formatApiTime = (isoTime, options) => {
+  const localTime = parseApiLocalTime(isoTime);
+  if (localTime) return localTime.toLocaleTimeString(undefined, { ...options, timeZone: "UTC" });
   const date = new Date(isoTime);
   return Number.isNaN(date.valueOf())
     ? "--"
-    : date.toLocaleTimeString(undefined, { hour: "numeric" });
+    : date.toLocaleTimeString(undefined, options);
 };
 
-export const formatClock = (date) =>
-  date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+// Open-Meteo timestamps are local to the requested location and have no offset.
+export const formatHour = (isoTime) => formatApiTime(isoTime, { hour: "numeric" });
+
+export const formatClock = (value) => {
+  if (typeof value === "string") {
+    return formatApiTime(value, { hour: "numeric", minute: "2-digit" });
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.valueOf())
+    ? "--"
+    : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+};
+
+export const formatUtcOffset = (timeZone, value = new Date()) => {
+  try {
+    const timeZoneName = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "longOffset",
+      hour: "numeric",
+    })
+      .formatToParts(value)
+      .find((part) => part.type === "timeZoneName")?.value;
+    if (!timeZoneName || timeZoneName === "GMT") return "UTC+0";
+    return timeZoneName
+      .replace("GMT", "UTC")
+      .replace(/([+-])0(\d)/, "$1$2")
+      .replace(":00", "");
+  } catch {
+    return "UTC";
+  }
+};
 
 export const formatCoordinates = (latitude, longitude) => {
   const lat = `${numberFormat(2).format(Math.abs(latitude))}° ${latitude >= 0 ? "N" : "S"}`;

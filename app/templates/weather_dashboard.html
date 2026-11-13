@@ -6,10 +6,10 @@
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
   <title>Weather Lookup</title>
-  <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/map-marker.css') }}">
-  <script type="module" src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2', v=asset_version) }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=asset_version) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/map-marker.css', v=asset_version) }}">
+  <script type="module" src="{{ url_for('static', filename='js/dashboard.js', v=asset_version) }}"></script>
 </head>
 <body>
   <!-- Decorative world map outline (app/static/img/world-map.svg). Hidden from assistive technology. -->
@@ -91,7 +91,8 @@
         <div class="location-summary">
           <h3 class="location-name" id="location-name">Selected location</h3>
           <p class="location-meta">
-            <span id="coordinates">--</span> · Checked <span id="updated">--</span>
+            Local time: <span id="local-time">--</span> (<span id="utc-offset">UTC --</span>)
+             · <span id="coordinates">--</span>
           </p>
         </div>
 
@@ -126,9 +127,9 @@
 
   <footer>
     <p>
-      Weather Lookup by <a href="https://github.com/pistashios1" rel="noopener">pistashios1</a>.
-      Weather data by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>.
-      Map data from <a href="https://www.naturalearthdata.com/" rel="noopener">Natural Earth</a>.
+      Weather Lookup by <a href="https://github.com/pistashios1" target="_blank" rel="noopener noreferrer" >pistashios1</a>.
+      Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>.
+      Map data from <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a>.
     </p>
     <button class="switch" id="map-toggle" type="button" role="switch" aria-checked="true">
       <span class="track" aria-hidden="true"></span>

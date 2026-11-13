@@ -54,6 +54,7 @@ CONTENT_SECURITY_POLICY = (
 )
 
 RATE_LIMIT_EXEMPT_ENDPOINTS = frozenset({"healthz", "readyz", "static"})
+STATIC_CACHE_MAX_AGE = 86400
 
 
 @dataclass(frozen=True)
@@ -236,6 +237,7 @@ def _search_score(
 def create_app(config: AppConfig | None = None) -> Flask:
     app = Flask(__name__)
     config = config or AppConfig.from_env()
+    app.config["ASSET_VERSION"] = uuid.uuid4().hex
     session = _session()
     cache = TTLCache(config.cache_size)
     limiter = RateLimiter(config.rate_limit, config.rate_window)
@@ -261,6 +263,10 @@ def create_app(config: AppConfig | None = None) -> Flask:
                 {"Retry-After": str(config.rate_window)},
             )
 
+    @app.context_processor
+    def inject_asset_version():
+        return {"asset_version": app.config["ASSET_VERSION"]}
+
     @app.after_request
     def after_request(response):
         response.headers["X-Request-ID"] = g.get("request_id", "")
@@ -268,6 +274,11 @@ def create_app(config: AppConfig | None = None) -> Flask:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+        if request.endpoint == "static":
+            response.cache_control.clear()
+            response.cache_control.public = True
+            response.cache_control.max_age = STATIC_CACHE_MAX_AGE
+            response.cache_control.immutable = True
         app.logger.info(
             "request method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
             request.method,

@@ -149,6 +149,7 @@ def test_weather_returns_current_conditions():
     response.json.return_value = {
         "latitude": 40.71,
         "longitude": -74.01,
+        "timezone": "America/New_York",
         "current": {
             "temperature_2m": 72.5,
             "wind_speed_10m": 4.2,
@@ -170,6 +171,7 @@ def test_weather_returns_current_conditions():
     assert result.status_code == 200
     assert result.get_json()["current"]["temperature_2m"] == 72.5
     assert result.get_json()["current"]["rain"] == 0.4
+    assert result.get_json()["timezone"] == "America/New_York"
     get.assert_called_once()
 
 
@@ -282,8 +284,8 @@ def test_configuration_can_be_overridden():
 def test_index_links_dashboard_assets():
     page = app.test_client().get("/").get_data(as_text=True)
 
-    assert "/static/css/dashboard.css" in page
-    assert "/static/js/dashboard.js" in page
+    assert re.search(r"/static/css/dashboard\.css\?v=[0-9a-f]{32}", page)
+    assert re.search(r"/static/js/dashboard\.js\?v=[0-9a-f]{32}", page)
     assert "data-map-marker" in page
     assert "<style>" not in page
     assert "<script>" not in page
@@ -320,6 +322,14 @@ def test_static_assets_are_not_rate_limited():
     result.close()
 
 
+def test_static_assets_are_cached_until_server_restart():
+    result = app.test_client().get("/static/css/dashboard.css")
+
+    assert result.status_code == 200
+    assert result.headers["Cache-Control"] == "public, max-age=86400, immutable"
+    result.close()
+
+
 def test_javascript_module_imports_resolve():
     modules = sorted((STATIC_DIR / "js").glob("*.js"))
     assert modules
@@ -327,6 +337,13 @@ def test_javascript_module_imports_resolve():
     for module in modules:
         for target in re.findall(r'from\s+"(\./[^"]+)"', module.read_text(encoding="utf-8")):
             assert (module.parent / target).is_file(), f"{module.name} imports missing {target}"
+
+
+def test_dashboard_versions_its_dynamic_module_imports():
+    dashboard = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "import.meta.url" in dashboard
+    assert "encodeURIComponent(assetVersion)" in dashboard
 
 
 def test_world_map_is_a_seamless_outline():
