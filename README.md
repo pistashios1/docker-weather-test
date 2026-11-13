@@ -5,8 +5,8 @@ twelve hours for any city or your current location.
 
 **Live demo: <https://docker-weather-test.vercel.app/>**
 
-- Starts with an approximate location from your IP address (no permission
-  prompt), or search for any city.
+- Starts with an approximate location from your IP address, so there is no
+  permission prompt unless it is needed, or search for any city.
 - See temperature, wind, precipitation, humidity, UV index, and an hourly
   forecast.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
@@ -93,17 +93,22 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
 
-The page never asks for location permission by itself. When it opens, the
-server quietly estimates where you are from your IP address, so weather appears
-straight away with no extra prompts or messages. The estimate is usually
-accurate to the city or region and can be wrong (VPNs and mobile networks often
-are). If it is not available, the dashboard shows **New York**.
+When the page opens it works out roughly where you are, in this order:
 
-The browser's permission prompt appears only after you click **Use my
-location**. If you deny it, the dashboard keeps showing the current place and
-explains why. After a successful lookup, the coordinates and resolved name are
-cached in this browser for 15 minutes as `user-location`; later uses and
-refreshes reuse that client-side location without asking again.
+1. **IP estimate.** The server estimates your location from your IP address
+   (city-level, and wrong for some VPNs and mobile networks). Nothing is shown
+   about this step; weather simply appears.
+2. **Browser permission.** If the estimate is not available, the page asks the
+   browser for your location straight away.
+3. **New York.** If you deny the prompt, or your position cannot be found, the
+   dashboard shows New York and a short message ("Location permission was
+   denied.") that you can dismiss.
+
+Clicking **Use my location** skips step 1 and asks the browser for permission
+directly; if you deny it, you get New York and the same message. After a
+successful lookup, the coordinates and resolved name are cached in this
+browser for 15 minutes as `user-location`; later uses and refreshes reuse that
+client-side location without asking again.
 
 Search results are ranked using what you typed, how close each place is to the
 place you are viewing, how large it is, and the places you picked before. Your
@@ -229,10 +234,14 @@ dashboard still shows the weather, labelled **Your location**.
 ### `GET /location`
 
 Estimates the caller's coordinates from their IP address. Returns `latitude`,
-`longitude`, `name` and `source`. The dashboard calls this when it opens. The
-caller's public address is sent to the IP location provider (see
-[Data sources](#data-sources-and-credits)) and results are cached in memory for
-an hour per address. Local and private addresses (such as `127.0.0.1`) cannot
+`longitude`, `name` and `source`. The dashboard calls this when it opens.
+
+- **On Vercel** the position comes from the `X-Vercel-IP-*` headers Vercel adds
+  to each request, so no outside service is called and nothing is sent
+  anywhere.
+- **Elsewhere** the caller's public address is sent to the IP location provider
+  (see [Data sources](#data-sources-and-credits)) and results are cached in
+  memory for an hour per address. Local and private addresses (such as `127.0.0.1`) cannot
 be located and return `404`. IP-based locations are approximate.
 
 ### `GET /healthz` and `GET /readyz`
@@ -313,12 +322,13 @@ reverse proxy in front.
 `PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
 **The page shows New York, or the wrong city, when it opens.** The page starts
-from a silent IP-based estimate. New York means the estimate was unavailable (you are
-on a local or private address such as `localhost`, or the provider is rate
-limited). A wrong city is normal for VPNs and mobile networks. Press **Use my
-location** and allow the browser prompt for a precise position. If you denied
-it earlier, allow location for the site in your browser settings first. Location needs a secure context: `http://localhost` works, but a
-plain-HTTP address on another machine does not.
+from a silent IP-based estimate. New York means you denied the browser's
+permission prompt (the message says so) or your position could not be found. A
+wrong city is normal for VPNs and mobile networks. Press **Use my location**
+and allow the browser prompt for a precise position. If you denied it earlier,
+allow location for the site in your browser settings first. Location needs a
+secure context: `http://localhost` works, but a plain-HTTP address on another
+machine does not.
 
 **"Weather service unavailable" (`502`).** The server could not reach the
 provider, or got an unexpected reply. Check the server's internet access and
@@ -421,10 +431,11 @@ never start the Flask function. No environment variables are required.
   fine for a small personal site; use a shared store if you need exact limits.
 - **Keep static files in `public/static`.** Flask's own static route is only for
   local use and Docker.
-- **The IP lookup uses the visitor's address**, taken from the same trusted
-  header as rate limiting, so it works on Vercel. Visitors' addresses are sent
-  to ipapi.co (free tier: about 1,000 lookups a day, cached for an hour per
-  address).
+- **The IP lookup uses Vercel's own location headers** (`X-Vercel-IP-Latitude`,
+  `-Longitude`, `-City`, `-Country-Region`, `-Country`), so it needs no outside
+  service, no API key and adds no delay. If those headers are missing, the app
+  falls back to ipapi.co using the visitor's address (the same trusted header as
+  rate limiting).
 
 Before each deploy:
 
@@ -461,7 +472,7 @@ publishes it to the GitHub Container Registry.
 | --- | --- | --- |
 | Weather, city search | [Open-Meteo](https://open-meteo.com/) | Free for non-commercial use, no key. Attribution is shown on the page. Check their terms for commercial use. |
 | Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
-| Approximate location from the visitor's IP address | [ipapi.co](https://ipapi.co/) | The visitor's public IP address is sent to this service when the page opens. Rate limited on the free tier; if it fails the dashboard shows New York. |
+| Approximate location from the visitor's IP address | Vercel request headers; otherwise [ipapi.co](https://ipapi.co/) | On Vercel nothing leaves the deployment. Elsewhere the visitor's public IP address is sent to ipapi.co when the page opens (rate limited on the free tier). If both are unavailable the browser is asked for permission instead. |
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
 | Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `public/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
 

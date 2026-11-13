@@ -3,6 +3,7 @@ import hashlib
 import ipaddress
 import os
 import time
+import urllib.parse
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -301,6 +302,27 @@ def _public_ip(value: str) -> str | None:
     return str(address) if address.is_global else None
 
 
+def _vercel_geolocation() -> dict[str, Any] | None:
+    """The visitor's approximate position from the headers Vercel adds to every
+    request (city-level, no outside service involved). Only call this when the
+    Vercel headers are trusted."""
+    headers = request.headers
+    try:
+        validated = validate_location_response(
+            {
+                "latitude": headers["X-Vercel-IP-Latitude"],
+                "longitude": headers["X-Vercel-IP-Longitude"],
+                # Vercel URL-encodes the city name.
+                "city": urllib.parse.unquote(headers.get("X-Vercel-IP-City", "")),
+                "region": headers.get("X-Vercel-IP-Country-Region", ""),
+                "country_name": headers.get("X-Vercel-IP-Country", ""),
+            }
+        )
+    except (KeyError, InvalidUpstreamPayload):
+        return None
+    return validated
+
+
 def _client_address(trust_vercel_header: bool) -> str:
     if trust_vercel_header:
         candidate = request.headers.get(VERCEL_CLIENT_IP_HEADER, "").split(",")[0].strip()
@@ -372,9 +394,14 @@ def create_app(config: AppConfig | None = None) -> Flask:
     def location():
         """Approximate the visitor's position from their IP address.
 
-        The visitor's address (not the server's) is sent to the IP location
+        On Vercel the position comes from Vercel's own request headers. Anywhere
+        else the visitor's address (not the server's) is sent to the IP location
         provider. Private and local addresses cannot be located.
         """
+        if config.trust_vercel_client_ip:
+            vercel_location = _vercel_geolocation()
+            if vercel_location is not None:
+                return jsonify({**vercel_location, "source": "Vercel IP geolocation"})
         url = config.ip_location_url
         address = None
         if "{ip}" in url:

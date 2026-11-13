@@ -587,21 +587,83 @@ def test_reverse_location_identifies_the_app_to_nominatim():
     assert user_agent.startswith("weather-lookup/") and "github.com/pistashios1" in user_agent
 
 
-def test_page_does_not_request_geolocation_permission_on_load():
-    script = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+def _dashboard_script():
+    return (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+
+
+def test_startup_tries_the_ip_lookup_before_asking_for_permission():
+    script = _dashboard_script()
     start = script[script.index("/* ---------- Start ---------- */"):]
+    lookup = script[script.index("const useApproximateLocation"):script.index("// The precise lookup failed")]
 
     assert "useApproximateLocation()" in start
-    assert "useMyLocation" not in start
     assert "getCurrentPosition" not in start
-    # The only caller of the permission prompt is the click handler's function.
+    # Permission is asked for only when the IP lookup found nothing...
+    assert "else requestPreciseLocation()" in lookup
+    # ...or when the visitor clicks "Use my location".
     assert script.count("getCurrentPosition(") == 1
+    assert script.count("requestPreciseLocation()") == 2  # the call above and useMyLocation
     assert 'locationButton.addEventListener("click"' in script
+    assert "announce(" not in lookup  # the IP lookup itself stays silent
 
 
-def test_ip_lookup_is_silent():
-    script = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
-    lookup = script[script.index("const useApproximateLocation"):script.index("// A precise lookup failed")]
+def test_denied_permission_shows_new_york_with_only_a_denial_message():
+    script = _dashboard_script()
 
-    assert "announce(" not in lookup
-    assert "note" not in lookup
+    assert 'const MESSAGE_DENIED = "Location permission was denied.";' in script
+    assert "useDefaultLocation(error && error.code === 1 ? MESSAGE_DENIED" in script
+    assert "applyLocation(DEFAULT_LOCATION, false)" in script
+    assert "Still showing" not in script
+
+
+def test_page_has_a_dismissible_toast():
+    page = app.test_client().get("/").get_data(as_text=True)
+
+    assert re.search(r'id="toast"[^>]*role="alert"', page)
+    assert 'id="toast-close"' in page
+
+
+def test_location_uses_vercel_geolocation_headers_without_an_outside_call():
+    client = _location_client(trust_vercel_client_ip=True)
+    headers = {
+        "X-Vercel-IP-Latitude": "41.8781",
+        "X-Vercel-IP-Longitude": "-87.6298",
+        "X-Vercel-IP-City": "S%C3%A3o%20Paulo",
+        "X-Vercel-IP-Country-Region": "SP",
+        "X-Vercel-IP-Country": "BR",
+    }
+
+    with patch("app.weather_app.requests.Session.get") as get:
+        result = client.get("/location", headers=headers, environ_overrides={"REMOTE_ADDR": "10.0.0.1"})
+
+    assert result.status_code == 200
+    assert result.get_json() == {
+        "latitude": 41.8781,
+        "longitude": -87.6298,
+        "name": "São Paulo, SP, BR",
+        "source": "Vercel IP geolocation",
+    }
+    get.assert_not_called()
+
+
+def test_location_ignores_vercel_geolocation_headers_unless_trusted():
+    headers = {"X-Vercel-IP-Latitude": "1", "X-Vercel-IP-Longitude": "2"}
+
+    with patch("app.weather_app.requests.Session.get") as get:
+        result = _location_client().get("/location", headers=headers)  # local address
+
+    assert result.status_code == 404
+    get.assert_not_called()
+
+
+def test_location_falls_back_to_the_ip_provider_when_vercel_headers_are_missing_or_bad():
+    for headers in ({}, {"X-Vercel-IP-Latitude": "x", "X-Vercel-IP-Longitude": "y"}):
+        client = _location_client(trust_vercel_client_ip=True)
+        with patch("app.weather_app.requests.Session.get", return_value=_ip_location_response()) as get:
+            result = client.get(
+                "/location",
+                headers={**headers, "X-Vercel-Forwarded-For": "8.8.8.8"},
+                environ_overrides={"REMOTE_ADDR": "10.0.0.1"},
+            )
+        assert result.status_code == 200
+        get.assert_called_once_with("https://ipapi.co/8.8.8.8/json/", timeout=5)
