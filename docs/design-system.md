@@ -31,7 +31,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-primary` / `-hover` | `#1769aa` / `#12578f` | `#5eb1f0` / `#82c3f5` | Buttons, selection, focus |
 | `--color-on-primary` | `#ffffff` | `#08202f` | Text on primary |
 | `--color-danger` / `-bg` | `#b42318` / `#fef3f2` | `#ff9a8f` | Error text and panel |
-| `--color-focus` | `#1769aa` | | Focus ring |
+| `--color-focus` | `#1769aa` | `#5eb1f0` | Focus ring |
 | `--color-map-line` | 12 % ink | 16 % ink | Background map outline |
 
 ### Hero palette
