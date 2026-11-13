@@ -5,7 +5,8 @@ twelve hours for any city or your current location.
 
 **Live demo: <https://docker-weather-test.vercel.app/>**
 
-- See your city on the map using your browser's location or manual search.
+- Starts with an approximate location from your IP address (no permission
+  prompt), or search for any city.
 - See temperature, wind, precipitation, humidity, UV index, and an hourly
   forecast.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
@@ -87,17 +88,22 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 
 | You want to | Do this |
 | --- | --- |
-| See the weather where you are | Allow the browser's location prompt when the page opens, or click the **Use my location** link next to the search box later. |
+| See the weather where you are | The page starts with an approximate spot based on your network. For a precise one, click **Use my location** next to the search box and allow the browser's prompt. |
 | See the weather somewhere else | Type a city in the search box and press **Search**, or pick a suggestion. Arrow keys move through suggestions, **Enter** picks one, **Esc** closes the list. |
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
 
-If you deny the location prompt, the dashboard shows **New York** so there is
-always something on screen. While the permission prompt is open, the dashboard
-continues waiting for your choice. After a successful location lookup, the
-coordinates and resolved name are cached in this browser as `user-location`;
-later uses and refreshes reuse that client-side location without requesting
-permission again.
+The page never asks for location permission by itself. When it opens, the
+server estimates where you are from your IP address, which is usually accurate
+to the city or region and can be wrong (VPNs and mobile networks often are). A
+note under the place name says when the location is approximate. If the estimate
+is not available, the dashboard shows **New York** and says so.
+
+The browser's permission prompt appears only after you click **Use my
+location**. If you deny it, the dashboard keeps showing the current place and
+explains why. After a successful lookup, the coordinates and resolved name are
+cached in this browser for 15 minutes as `user-location`; later uses and
+refreshes reuse that client-side location without asking again.
 
 Search results are ranked using what you typed, how close each place is to the
 place you are viewing, how large it is, and the places you picked before. Your
@@ -118,6 +124,7 @@ recent picks are stored only in your browser.
 ```text
 Browser (public/static/ + app/templates/)
    |
+   |  GET /location         approximate position from the visitor's IP
    |  GET /search           find a city by name
    |  GET /weather          current conditions + hourly forecast
    |  GET /reverse-location turn browser coordinates into a place name
@@ -221,9 +228,12 @@ dashboard still shows the weather, labelled **Your location**.
 
 ### `GET /location`
 
-Estimates your coordinates from your IP address. Returns `latitude`,
-`longitude`, `name` and `source`. The dashboard does not call this; it is kept
-for scripts and other clients. IP-based locations are approximate.
+Estimates the caller's coordinates from their IP address. Returns `latitude`,
+`longitude`, `name` and `source`. The dashboard calls this when it opens. The
+caller's public address is sent to the IP location provider (see
+[Data sources](#data-sources-and-credits)) and results are cached in memory for
+an hour per address. Local and private addresses (such as `127.0.0.1`) cannot
+be located and return `404`. IP-based locations are approximate.
 
 ### `GET /healthz` and `GET /readyz`
 
@@ -262,7 +272,7 @@ Set environment variables before starting the app. All are optional.
 | `OPEN_METEO_URL` | Open-Meteo forecast | Weather provider URL. |
 | `GEOCODING_URL` | Open-Meteo geocoding | City search provider URL. |
 | `REVERSE_GEOCODING_URL` | Nominatim | Place-name provider URL. |
-| `IP_LOCATION_URL` | ipapi.co | IP location provider URL. |
+| `IP_LOCATION_URL` | `https://ipapi.co/{ip}/json/` | IP location provider URL. `{ip}` is replaced with the visitor's public address. A URL without `{ip}` is used as it is. |
 
 Static dashboard assets are served with a one-day browser cache and
 `immutable` caching. Their URLs include a version taken from the files'
@@ -302,9 +312,12 @@ reverse proxy in front.
 (AirPlay Receiver on macOS is a common one). Start the app on another port:
 `PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
-**The page shows New York instead of my location.** The browser's location
-permission was denied or dismissed. Allow location for the site and press **Use
-my location**. Location needs a secure context: `http://localhost` works, but a
+**The page shows New York, or the wrong city, when it opens.** The page starts
+from an IP-based estimate. New York means the estimate was unavailable (you are
+on a local or private address such as `localhost`, or the provider is rate
+limited). A wrong city is normal for VPNs and mobile networks. Press **Use my
+location** and allow the browser prompt for a precise position. If you denied
+it earlier, allow location for the site in your browser settings first. Location needs a secure context: `http://localhost` works, but a
 plain-HTTP address on another machine does not.
 
 **"Weather service unavailable" (`502`).** The server could not reach the
@@ -408,8 +421,10 @@ never start the Flask function. No environment variables are required.
   fine for a small personal site; use a shared store if you need exact limits.
 - **Keep static files in `public/static`.** Flask's own static route is only for
   local use and Docker.
-- **`/location` is not useful on Vercel.** It looks up the *server's* IP, which
-  is a data centre. The dashboard does not call it.
+- **The IP lookup uses the visitor's address**, taken from the same trusted
+  header as rate limiting, so it works on Vercel. Visitors' addresses are sent
+  to ipapi.co (free tier: about 1,000 lookups a day, cached for an hour per
+  address).
 
 Before each deploy:
 
@@ -446,7 +461,7 @@ publishes it to the GitHub Container Registry.
 | --- | --- | --- |
 | Weather, city search | [Open-Meteo](https://open-meteo.com/) | Free for non-commercial use, no key. Attribution is shown on the page. Check their terms for commercial use. |
 | Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
-| IP location (`/location` only) | [ipapi.co](https://ipapi.co/) | Rate limited on the free tier. |
+| Approximate location from the visitor's IP address | [ipapi.co](https://ipapi.co/) | The visitor's public IP address is sent to this service when the page opens. Rate limited on the free tier; if it fails the dashboard shows New York. |
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
 | Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `public/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
 

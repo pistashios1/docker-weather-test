@@ -57,7 +57,7 @@ One element whose `data-state` selects what is visible.
 | State | Shows | Announced |
 | --- | --- | --- |
 | `empty` | "No weather loaded yet" and a hint | |
-| `locating` | "Finding your location…" and a permission hint (static, no animation) | "Requesting your location…" |
+| `locating` | "Finding your location…" and a permission hint (static, no animation); shown only after **Use my location** is clicked | "Requesting your location…" |
 | `loading` | Skeleton blocks, fading in only after 300ms so quick responses never flash | "Loading weather…" |
 | `error` | Message in danger colours and a **Try again** button | Immediately (`role="alert"`) |
 | `ready` | Place, hero, details, forecast | "Weather loaded for {place}: {temperature}, {condition}, wind {speed}." |
@@ -89,7 +89,7 @@ A new search cancels the previous one. Picking an option fills the field with th
 
 ### Other controls
 
-- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. The first successful lookup is cached as `user-location`; later uses and refreshes reuse it without reopening the permission prompt. Falls back to New York if permission is denied; it keeps waiting while the browser permission prompt is open.
+- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. The first successful lookup is cached as `user-location`; later uses and refreshes reuse it without reopening the permission prompt. The page never asks for permission on load: it starts from an IP-based estimate (`/location`, labelled in a note under the place name) and falls back to New York. This link is the only thing that triggers the browser permission prompt. If permission is denied or the lookup fails, the current place stays on screen with a note explaining why.
 - **Unit toggle**: radio group styled as a segmented pill. Remembered in `localStorage` (`weather-units`). Converting is done in the browser from °F and mph.
 - **Animate background**: switch (`role="switch"`) in the footer. Remembered (`weather-map-animation`). Hidden when the system asks for reduced motion.
 
