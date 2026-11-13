@@ -1,7 +1,7 @@
 # Handoff spec: weather dashboard
 
 Design handoff for `app/templates/weather_dashboard.html`, with
-`app/static/css/dashboard.css` and `app/static/js/*`. It describes what the page
+`public/static/css/dashboard.css` and `public/static/js/*`. It describes what the page
 must do so a change can be checked
 against it.
 
@@ -42,7 +42,7 @@ Defined as CSS custom properties at the top of `dashboard.css`. Use tokens, not 
 | `--radius-sm`, `-md`, `-pill` | 0.4rem, 0.75rem, 999px | | Radii. Buttons and toggles are pills. |
 | `--motion-fast`, `--motion-base` | 150ms, 250ms | | Transitions |
 
-Type: Space Grotesk (variable, self-hosted from `app/static/fonts`, with a system
+Type: Space Grotesk (variable, self-hosted from `public/static/fonts`, with a system
 fallback) for everything except the page title, which is Times New Roman
 (`--font-title`). The title is `clamp(1.75rem, 5vw, 2.25rem)`; the temperature is
 `clamp(3.5rem, 16vw, 5.5rem)`, bold, with tabular numbers. The accented-character
@@ -117,7 +117,7 @@ effectively instant and the map does not move.
 
 ## Background map
 
-`app/static/img/world-map.svg`: coastlines from Natural Earth 1:110m, equirectangular,
+`public/static/img/world-map.svg`: coastlines from Natural Earth 1:110m, equirectangular,
 360° of longitude by 142° of latitude (84°N to 58°S, Antarctica omitted), with a
 graticule every 30° and the equator and tropics dashed. It is used as a CSS mask
 so the line colour follows the theme. The track is one map wider than the
@@ -129,8 +129,8 @@ tile bounds. It appears after a successful weather load inside the map track,
 scrolls with the map, and pauses with it. The marker is hidden below 36rem and
 kept low-opacity so it remains decorative; it uses the map-line color in light
 mode and a subdued glowing white dot in dark mode.
-The projection and marker lifecycle live in `app/static/js/map-marker.js`; its
-visual treatment is isolated in `app/static/css/map-marker.css`.
+The projection and marker lifecycle live in `public/static/js/map-marker.js`; its
+visual treatment is isolated in `public/static/css/map-marker.css`.
 
 ## Edge cases
 

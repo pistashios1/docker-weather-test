@@ -8,7 +8,7 @@ import requests
 
 from app.weather_app import AppConfig, app, create_app
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "app" / "static"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "public" / "static"
 
 
 @pytest.fixture(autouse=True)
@@ -284,8 +284,8 @@ def test_configuration_can_be_overridden():
 def test_index_links_dashboard_assets():
     page = app.test_client().get("/").get_data(as_text=True)
 
-    assert re.search(r"/static/css/dashboard\.css\?v=[0-9a-f]{32}", page)
-    assert re.search(r"/static/js/dashboard\.js\?v=[0-9a-f]{32}", page)
+    assert re.search(r"/static/css/dashboard\.css\?v=[0-9a-zA-Z_-]+", page)
+    assert re.search(r"/static/js/dashboard\.js\?v=[0-9a-zA-Z_-]+", page)
     assert "data-map-marker" in page
     assert "<style>" not in page
     assert "<script>" not in page
@@ -369,3 +369,142 @@ def test_page_has_no_inline_styles_or_scripts():
 
     assert " style=" not in html
     assert not re.search(r"<script(?![^>]*\bsrc=)", html)
+
+
+def _client_with_limit(limit, **overrides):
+    configured = create_app(AppConfig(rate_limit=limit, **overrides))
+    return configured.test_client()
+
+
+def test_vercel_client_ip_header_gives_each_visitor_their_own_limit():
+    client = _client_with_limit(1, trust_vercel_client_ip=True)
+    proxy = {"REMOTE_ADDR": "10.0.0.1"}  # every request arrives from Vercel's proxy
+
+    first = client.get("/readyz-not-exempt", headers={"X-Vercel-Forwarded-For": "203.0.113.5"}, environ_overrides=proxy)
+    second = client.get("/readyz-not-exempt", headers={"X-Vercel-Forwarded-For": "203.0.113.6"}, environ_overrides=proxy)
+    repeat = client.get("/readyz-not-exempt", headers={"X-Vercel-Forwarded-For": "203.0.113.5"}, environ_overrides=proxy)
+
+    assert first.status_code == 404  # not rate limited (the route does not exist)
+    assert second.status_code == 404  # a different visitor has a fresh allowance
+    assert repeat.status_code == 429  # the same visitor is limited
+
+
+def test_vercel_client_ip_header_is_ignored_unless_trusted():
+    client = _client_with_limit(1)
+    proxy = {"REMOTE_ADDR": "10.0.0.1"}
+
+    first = client.get("/nope", headers={"X-Vercel-Forwarded-For": "203.0.113.5"}, environ_overrides=proxy)
+    spoofed = client.get("/nope", headers={"X-Vercel-Forwarded-For": "203.0.113.6"}, environ_overrides=proxy)
+
+    assert first.status_code == 404
+    assert spoofed.status_code == 429  # a client cannot dodge the limit by changing the header
+
+
+@pytest.mark.parametrize("value", ["", "not-an-ip", "203.0.113.5:80"])
+def test_bad_vercel_client_ip_falls_back_to_connection_address(value):
+    client = _client_with_limit(1, trust_vercel_client_ip=True)
+    proxy = {"REMOTE_ADDR": "10.0.0.1"}
+
+    client.get("/nope", headers={"X-Vercel-Forwarded-For": value}, environ_overrides=proxy)
+    second = client.get("/nope", headers={"X-Vercel-Forwarded-For": value}, environ_overrides=proxy)
+
+    assert second.status_code == 429
+
+
+def test_vercel_client_ip_is_trusted_automatically_on_vercel(monkeypatch):
+    monkeypatch.delenv("TRUST_VERCEL_CLIENT_IP", raising=False)
+    monkeypatch.setenv("VERCEL", "1")
+    assert AppConfig.from_env().trust_vercel_client_ip is True
+
+    monkeypatch.delenv("VERCEL")
+    assert AppConfig.from_env().trust_vercel_client_ip is False
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("TRUST_VERCEL_CLIENT_IP", "false")
+    assert AppConfig.from_env().trust_vercel_client_ip is False
+
+    monkeypatch.setenv("TRUST_VERCEL_CLIENT_IP", "maybe")
+    with pytest.raises(ValueError):
+        AppConfig.from_env()
+
+
+def test_rate_limiter_forgets_idle_clients():
+    from app.weather_app import RateLimiter
+
+    limiter = RateLimiter(limit=1, window=60)
+    limiter.MAX_CLIENTS = 3
+    with patch("app.weather_app.time.monotonic", return_value=0.0):
+        for client in ("a", "b", "c"):
+            limiter.allowed(client)
+    with patch("app.weather_app.time.monotonic", return_value=1000.0):
+        limiter.allowed("d")
+
+    assert set(limiter._requests) == {"d"}
+
+
+def test_asset_version_is_stable_across_restarts(monkeypatch):
+    monkeypatch.delenv("ASSET_VERSION", raising=False)
+    first = create_app(AppConfig()).config["ASSET_VERSION"]
+    second = create_app(AppConfig()).config["ASSET_VERSION"]
+
+    assert first == second
+    assert re.fullmatch(r"[0-9a-f]{32}", first)
+
+
+def test_asset_version_can_be_set_explicitly(monkeypatch):
+    monkeypatch.setenv("ASSET_VERSION", "release-7")
+
+    assert create_app(AppConfig()).config["ASSET_VERSION"] == "release-7"
+
+
+def test_vercel_config_serves_static_files_with_cache_headers():
+    import json
+
+    root = Path(__file__).resolve().parent.parent
+    config = json.loads((root / "vercel.json").read_text())
+    rule = next(rule for rule in config["headers"] if rule["source"] == "/static/(.*)")
+    headers = {item["key"]: item["value"] for item in rule["headers"]}
+
+    assert "max-age=86400" in headers["Cache-Control"]
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert (root / "public" / "static" / "css" / "dashboard.css").is_file()
+
+
+def test_production_dependencies_are_patched_and_consistent():
+    root = Path(__file__).resolve().parent.parent
+    pins = dict(
+        line.split("==")
+        for line in (root / "requirements.txt").read_text().split()
+        if "==" in line
+    )
+    pyproject = (root / "pyproject.toml").read_text()
+
+    def version(text):
+        return tuple(int(part) for part in text.split("."))
+
+    assert version(pins["Flask"]) >= (3, 1, 3)
+    assert f"Flask=={pins['Flask']}" in pyproject
+    assert f"requests=={pins['requests']}" in pyproject
+
+
+def test_scrollable_forecast_is_keyboard_focusable():
+    page = app.test_client().get("/").get_data(as_text=True)
+
+    assert re.search(r'id="forecast"[^>]*tabindex="0"', page)
+
+
+def test_font_preload_matches_the_url_the_stylesheet_requests():
+    page = app.test_client().get("/").get_data(as_text=True)
+    preload = re.search(r'rel="preload" href="([^"]+\.woff2)[^"]*"', page).group(1)
+
+    assert "?" not in preload
+    assert f"url(\"../fonts/{preload.rsplit('/', 1)[1]}\")" in (
+        STATIC_DIR / "css" / "dashboard.css"
+    ).read_text(encoding="utf-8")
+
+
+def test_footer_text_is_not_faded_below_contrast_requirements():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+    footer_paragraph = re.search(r"footer p \{[^}]*\}", css).group(0)
+
+    assert "opacity" not in footer_paragraph

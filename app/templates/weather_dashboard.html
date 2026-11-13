@@ -6,13 +6,13 @@
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
   <title>Weather Lookup</title>
-  <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2', v=asset_version) }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=asset_version) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/map-marker.css', v=asset_version) }}">
   <script type="module" src="{{ url_for('static', filename='js/dashboard.js', v=asset_version) }}"></script>
 </head>
 <body>
-  <!-- Decorative world map outline (app/static/img/world-map.svg). Hidden from assistive technology. -->
+  <!-- Decorative world map outline (public/static/img/world-map.svg). Hidden from assistive technology. -->
   <div class="map-bg" id="map-bg" data-animate="true" aria-hidden="true">
     <div class="map-track" id="map-track">
       <div class="map-lines"></div>
@@ -119,7 +119,7 @@
 
         <div class="forecast-section">
           <h3 class="forecast-heading">Hourly forecast</h3>
-          <div class="forecast" id="forecast" role="group" aria-label="Hourly weather forecast"></div>
+          <div class="forecast" id="forecast" role="group" tabindex="0" aria-label="Hourly weather forecast"></div>
         </div>
       </div>
     </section>
