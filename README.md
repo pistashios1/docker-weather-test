@@ -1,11 +1,53 @@
-# Weather API
+# Weather Lookup
 
-A Docker-ready Flask API that returns current weather for a latitude and
-longitude using [Open-Meteo](https://open-meteo.com/).
+A small full-stack web app that looks up the weather for a place you choose and
+shows the basics: current conditions, temperature, wind, precipitation,
+humidity, UV index, and an hourly forecast for the next twelve hours.
+
+Search for a city, or let the browser find you. There is no account and no API
+key. A Flask backend does the lookups and serves the dashboard, and the whole
+thing runs in one Docker container.
+
+![The weather dashboard showing New York with sample data: 64°F, partly cloudy, wind, humidity, UV index and an hourly forecast](docs/dashboard.png)
+
+*The dashboard, shown with sample data.*
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Using the dashboard](#using-the-dashboard)
+- [How it works](#how-it-works)
+- [API reference](#api-reference)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Deploying](#deploying)
+- [Data sources and credits](#data-sources-and-credits)
 
 ## Quick start
 
-### Run locally
+You need either Docker, or Python 3.13 (the version the tests and the Docker
+image use). Either way you are looking at the dashboard in about two minutes.
+
+### Option 1: Docker
+
+```bash
+docker build -t weather-lookup .
+docker run --rm -p 5000:5000 weather-lookup
+```
+
+### Option 2: Python
+
+macOS or Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python weather_app.py
+```
+
+Windows (PowerShell):
 
 ```powershell
 python -m venv .venv
@@ -14,148 +56,128 @@ pip install -r requirements.txt
 python weather_app.py
 ```
 
-The API starts on plain HTTP at `http://localhost:5000`. Try the health check:
+### Open it
 
-```powershell
-curl.exe http://localhost:5000/healthz
+Go to **<http://localhost:5000>** in your browser. Use `http://`, not
+`https://`: the app does not serve TLS (see [Troubleshooting](#troubleshooting)).
+
+To check that the server itself is up without a browser:
+
+```bash
+curl http://localhost:5000/healthz
+# {"status":"ok"}
 ```
 
-Then request current conditions:
+The server needs internet access, because the weather, city search and place
+names come from public services (see [Data sources](#data-sources-and-credits)).
 
-```powershell
-curl.exe "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
-```
+## Using the dashboard
 
-Open `http://localhost:5000/` in a browser to search for a city or region.
-The app automatically requests browser location permission on load. If
-permission is unavailable or denied, it loads New York as the default. Use
-**Use my location** to retry permission later.
+| You want to | Do this |
+| --- | --- |
+| See the weather where you are | Allow the browser's location prompt when the page opens, or click the **Use my location** link next to the search box later. |
+| See the weather somewhere else | Type a city in the search box and press **Search**, or pick a suggestion. Arrow keys move through suggestions, **Enter** picks one, **Esc** closes the list. |
+| Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
+| Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
 
-Port `5000` is not configured for TLS. Use `http://`, not `https://`; sending
-an HTTPS request to this port produces a `400 Bad request version` message
-because Flask receives TLS handshake bytes where it expects an HTTP request.
+If you deny the location prompt, or do not answer it within eight seconds, the
+dashboard shows **New York** so there is always something on screen.
 
-### Run with Docker
+Search results are ranked using what you typed, how close each place is to the
+place you are viewing, how large it is, and the places you picked before. Your
+recent picks are stored only in your browser.
 
-```powershell
-docker build -t weather-api:local .
-docker run --rm -p 5000:5000 weather-api:local
-```
+**What the numbers mean**
 
-The image runs Gunicorn with two workers and includes a Docker health check.
+- **Temperature and wind** are current readings for the chosen coordinates.
+- **Precipitation** is rain falling now, in millimetres.
+- **Humidity** is relative humidity, as a percentage.
+- **UV index** is the current ultraviolet index (0 is none, 11 and above is extreme).
+- **Checked** is the time your browser last fetched the data, not the time the
+  weather station measured it. The server caches results for 30 seconds.
+- **Hourly forecast** shows the next twelve hours, starting with **Now**.
 
-## Request flow
+## How it works
 
 ```text
-Client
-  |
-  | GET /weather?latitude=40.71&longitude=-74.01
-  v
-Flask API
-  |-- Parse and validate coordinates
-  |-- Request current conditions from Open-Meteo
-  |-- Return a normalized JSON response
-  v
-Client
+Browser (static/ + templates/)
+   |
+   |  GET /search           find a city by name
+   |  GET /weather          current conditions + hourly forecast
+   |  GET /reverse-location turn browser coordinates into a place name
+   v
+Flask app (weather_app.py)  --  validates input, caches, rate limits
+   |
+   |--> Open-Meteo forecast   weather
+   |--> Open-Meteo geocoding  city search
+   |--> OpenStreetMap Nominatim   place name for browser coordinates
+   v
+JSON validated by api_contracts.py, then returned to the browser
 ```
 
-The application is stateless, stores no weather data, and does not require an
-API key. For each weather request, it:
-
-1. Parses `latitude` and `longitude` as numbers.
-2. Validates their geographic ranges.
-3. Requests temperature and wind speed from Open-Meteo.
-4. Returns the upstream coordinates and current conditions.
-5. Reports upstream request failures as a `502` response.
+The app is stateless and stores no weather data. Responses from the providers
+are checked against a strict shape before they are passed on; if a provider
+returns something unexpected, the app answers `502` instead of passing it
+through.
 
 ## API reference
 
-### `GET /healthz`
-
-Returns:
-
-```json
-{"status": "ok"}
-```
-
-This endpoint is used by the Docker health check.
-
-`/healthz` is a dependency-free liveness check. It should not be used to
-restart the container when an external weather provider is unavailable.
-
-### `GET /readyz`
-
-Returns:
-
-```json
-{"status": "ready"}
-```
-
-This endpoint indicates that the application process has loaded successfully.
-Provider calls remain request-driven, so a provider outage is reported as a
-`502` from `/weather` or `/location` rather than making health probes depend on
-third-party availability.
+The dashboard uses these endpoints, and you can call them directly. All
+responses are JSON. Errors look like `{"error": "message"}`.
 
 ### `GET /weather`
 
-#### Query parameters
+Current conditions and the next hours of forecast for a point.
 
-| Name | Type | Required | Valid range |
+| Parameter | Type | Required | Range |
 | --- | --- | --- | --- |
-| `latitude` | number | Yes | `-90` to `90` |
-| `longitude` | number | Yes | `-180` to `180` |
+| `latitude` | number | yes | -90 to 90 |
+| `longitude` | number | yes | -180 to 180 |
 
-#### Success response
+```bash
+curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
+```
 
 ```json
 {
   "latitude": 40.71,
   "longitude": -74.01,
   "current": {
-    "temperature_2m": 72.5,
-    "wind_speed_10m": 4.2,
-    "weather_code": 1,
-    "rain": 0
+    "temperature_2m": 64.0,
+    "wind_speed_10m": 8.4,
+    "weather_code": 2,
+    "rain": 0.0,
+    "relative_humidity_2m": 58,
+    "uv_index": 2.6
   },
   "hourly": {
-    "time": ["2026-11-12T12:00"],
-    "temperature_2m": [72.5],
-    "weather_code": [1]
+    "time": ["2026-11-12T13:00", "2026-11-12T14:00"],
+    "temperature_2m": [64.0, 64.0],
+    "weather_code": [2, 2]
   },
   "source": "Open-Meteo"
 }
 ```
 
-The API requests temperature in Fahrenheit, wind speed in miles per hour, and
-Open-Meteo WMO weather codes for current conditions and the next 24 hours.
-The frontend maps those codes to labels such as **Clear**, **Partly cloudy**,
-**Rain**, **Snow**, and **Thunderstorm**. Open-Meteo supports these fields;
-incomplete upstream forecast payloads are rejected with a stable `502` error.
-Precipitation is reported in millimeters, humidity as a percentage, and UV
-index as a numeric value. Precipitation is `0` when no rain is occurring.
+- Units follow the server configuration. The defaults are °F and mph; rain is
+  in millimetres.
+- `weather_code` is a [WMO weather code](https://open-meteo.com/en/docs#weathervariables).
+  The dashboard turns it into a label such as *Clear*, *Rain* or *Thunderstorm*.
+- `hourly` holds up to 24 hours. The dashboard shows the first 12.
 
-#### Error responses
+### `GET /search`
 
-| Status | Condition | Response |
-| --- | --- | --- |
-| `400` | Missing, non-numeric, or out-of-range coordinates | JSON `error` message |
-| `502` | Open-Meteo request fails | `{"error": "weather service unavailable"}` |
-| `429` | Per-process request limit exceeded | JSON `error` message and `Retry-After` header |
+Finds places by name. Returns up to 10 matches.
 
-Successful weather responses are cached for 30 seconds by default. Coordinates
-are rounded to three decimal places for cache keys, and the cache is bounded
-to 256 entries.
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `q` | string | yes | At least one character. |
+| `latitude`, `longitude` | number | no | Rank nearby places higher. Send both or neither. Defaults to New York. |
+| `affinity` | string | no | Comma-separated names to favour, such as recent picks (first 10 are used). |
 
-### `GET /search?q=<name>`
-
-Searches the Open-Meteo geocoding catalog and returns up to twenty matching
-cities or regions worldwide, including one-character queries. Pass the current
-`latitude` and `longitude` to rank results using a weighted score:
-`0.55 * relevance + 0.15 * proximity + 0.20 * popularity + 0.10 * user
-affinity`. Relevance favors the typed characters at the start of the city
-name, followed by word-start and substring matches. The optional `affinity`
-parameter accepts recently selected city names and helps personalize results.
-Results are cached for five minutes by default.
+```bash
+curl "http://localhost:5000/search?q=paris"
+```
 
 ```json
 {
@@ -163,85 +185,203 @@ Results are cached for five minutes by default.
     {
       "name": "Paris",
       "context": "Ile-de-France, France",
-      "latitude": 48.8566,
-      "longitude": 2.3522
+      "latitude": 48.85341,
+      "longitude": 2.3488,
+      "population": 2138551
     }
   ]
 }
 ```
 
+Results are ordered by a weighted score: 55% how well the name matches, 15%
+proximity, 20% population and 10% affinity. They are cached for five minutes.
+
 ### `GET /reverse-location`
 
-Resolves browser coordinates to a city name for the initial weather display.
-The endpoint uses OpenStreetMap Nominatim and accepts `latitude` and
-`longitude` query parameters. If reverse geocoding is unavailable, weather
-still loads with a generic location label.
+Turns coordinates into a place name. Takes `latitude` and `longitude`, and
+returns `{"name": "New York, New York, United States"}`. If the lookup fails the
+dashboard still shows the weather, labelled **Your location**.
+
+### `GET /location`
+
+Estimates your coordinates from your IP address. Returns `latitude`,
+`longitude`, `name` and `source`. The dashboard does not call this; it is kept
+for scripts and other clients. IP-based locations are approximate.
+
+### `GET /healthz` and `GET /readyz`
+
+Return `{"status": "ok"}` and `{"status": "ready"}`. Neither calls an external
+service, so a provider outage never makes a health check fail. The Docker image
+uses `/healthz` for its health check.
+
+### Errors
+
+| Status | Meaning |
+| --- | --- |
+| `400` | A missing, non-numeric or out-of-range parameter. |
+| `429` | Too many requests from one client. The `Retry-After` header says how many seconds to wait. |
+| `502` | A weather, search or location provider failed or returned an unexpected response. |
+
+Every response carries an `X-Request-ID` header. Send your own to trace a
+request through the logs.
 
 ## Configuration
 
-The development server listens for plain HTTP on `0.0.0.0:5000` by default.
-Override the port with the `PORT` environment variable:
+Set environment variables before starting the app. All are optional.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `PORT` | `5000` | Port for `python weather_app.py` only. The Docker image always listens on 5000. |
+| `TEMPERATURE_UNIT` | `fahrenheit` | `fahrenheit` or `celsius`. See the note below. |
+| `WIND_SPEED_UNIT` | `mph` | `mph`, `kmh` or `ms`. See the note below. |
+| `WEATHER_CACHE_TTL` | `30` | Seconds to cache a weather result. |
+| `WEATHER_CACHE_SIZE` | `256` | Most locations kept in the weather cache. |
+| `SEARCH_CACHE_TTL` | `300` | Seconds to cache search results. |
+| `UPSTREAM_TIMEOUT` | `5` | Seconds to wait for a provider. |
+| `RATE_LIMIT` | `60` | Requests allowed per client in each window. |
+| `RATE_WINDOW` | `60` | Length of the rate-limit window, in seconds. |
+| `OPEN_METEO_URL` | Open-Meteo forecast | Weather provider URL. |
+| `GEOCODING_URL` | Open-Meteo geocoding | City search provider URL. |
+| `REVERSE_GEOCODING_URL` | Nominatim | Place-name provider URL. |
+| `IP_LOCATION_URL` | ipapi.co | IP location provider URL. |
+
+> **Keep the unit defaults if you use the dashboard.** The page expects °F and
+> mph from the API and does the metric conversion itself. If you set
+> `TEMPERATURE_UNIT=celsius` or `WIND_SPEED_UNIT=kmh`, the dashboard will show
+> wrong numbers. These settings are for people who call the API directly.
+
+Example:
+
+```bash
+# macOS or Linux
+PORT=8000 RATE_LIMIT=120 python weather_app.py
+```
 
 ```powershell
+# Windows (PowerShell)
 $env:PORT = "8000"
+$env:RATE_LIMIT = "120"
 python weather_app.py
 ```
 
-The following environment variables are available:
+The server also sends `X-Content-Type-Options`, `X-Frame-Options` and
+`Referrer-Policy` headers, and logs one line per request (method, path, status,
+duration and request ID) without logging provider responses.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `OPEN_METEO_URL` | Open-Meteo forecast URL | Weather provider URL |
-| `IP_LOCATION_URL` | ipapi.co JSON URL | IP location provider URL |
-| `GEOCODING_URL` | Open-Meteo geocoding URL | City and region search provider URL |
-| `REVERSE_GEOCODING_URL` | Nominatim reverse URL | Browser-coordinate city lookup URL |
-| `SEARCH_CACHE_TTL` | `300` | Search-result cache lifetime in seconds |
-| `UPSTREAM_TIMEOUT` | `5` | Upstream request timeout in seconds |
-| `TEMPERATURE_UNIT` | `fahrenheit` | `celsius` or `fahrenheit` |
-| `WIND_SPEED_UNIT` | `mph` | `kmh`, `mph`, or `ms` |
-| `WEATHER_CACHE_TTL` | `30` | Cache lifetime in seconds |
-| `WEATHER_CACHE_SIZE` | `256` | Maximum cached coordinate keys |
-| `RATE_LIMIT` | `60` | Requests per client per rate window |
-| `RATE_WINDOW` | `60` | Rate-limit window in seconds |
+## Troubleshooting
 
-The service adds an `X-Request-ID` response header, accepts a caller-provided
-request ID, and logs method, path, status, duration, and request ID. It does
-not log provider payloads by default.
+**The browser says "Bad request version" or the connection fails on `https://`.**
+Port 5000 is plain HTTP. Use `http://localhost:5000`. To serve HTTPS, put a
+reverse proxy in front.
 
-Caching and rate limiting are process-local. They are suitable for a single
-container, but are not global when Gunicorn or the deployment uses multiple
-replicas. For scaled deployments, enforce global limits and shared caching at
-an API gateway or with a shared store such as Redis.
+**"Address already in use" on startup.** Something else is using port 5000
+(AirPlay Receiver on macOS is a common one). Start the app on another port:
+`PORT=8000 python weather_app.py`, or `docker run -p 8000:5000 weather-lookup`.
 
-The Docker image always publishes port `5000` and uses Gunicorn to serve
-`weather_app:app` over HTTP. Put TLS termination in a reverse proxy if HTTPS is
-required.
+**The page shows New York instead of my location.** The browser's location
+permission was denied, dismissed, or did not answer in eight seconds. Allow
+location for the site and press **Use my location**. Location needs a secure
+context: `http://localhost` works, but a plain-HTTP address on another machine
+does not.
+
+**"Weather service unavailable" (`502`).** The server could not reach the
+provider, or got an unexpected reply. Check the server's internet access and
+read its log; then press **Try again**.
+
+**"Too many requests" (`429`).** One client sent more than `RATE_LIMIT`
+requests in `RATE_WINDOW` seconds. Wait the number of seconds shown, or raise
+the limit.
+
+**Temperatures look wrong.** Check that `TEMPERATURE_UNIT` and
+`WIND_SPEED_UNIT` are not set (see [Configuration](#configuration)).
+
+**The page is unstyled or blank.** The CSS and JavaScript load from `/static`.
+If you build your own image, make sure it includes the `static` folder.
 
 ## Development
 
-### Run tests
+### Project layout
 
-```powershell
+```text
+weather_app.py        Flask app: routes, caching, rate limiting
+api_contracts.py      Validation of provider responses and API shapes
+templates/
+  weather_dashboard.html   Page markup
+static/
+  css/dashboard.css        Styles and design tokens
+  js/dashboard.js          Page logic
+  js/search-box.js         Accessible city search (ARIA combobox)
+  js/format.js             Units, weather-code labels, number formatting
+  js/storage.js            Safe localStorage wrapper
+  img/world-map.svg        Background map (generated, see below)
+  fonts/                   Space Grotesk (self-hosted) and its licence
+scripts/
+  build-world-map.mjs      Generates the map from Natural Earth data
+tests/test_app.py         Test suite
+docs/                     Screenshot and design handoff spec
+```
+
+### Run the tests
+
+```bash
 pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The test suite covers successful weather responses, coordinate validation,
-upstream failures, and the health endpoint.
+The tests cover every endpoint, input validation, provider failures, caching,
+rate limiting, the page and its static files. They use mocked providers, so
+they run offline. GitHub Actions runs them on every push and pull request.
 
-### Inspect Docker health
+### Change the background map
 
-```powershell
-docker ps
-docker inspect --format='{{json .State.Health}}' <container-id>
+`static/img/world-map.svg` is an outline of real coastlines (Natural Earth
+1:110m data, equirectangular projection, 84°N to 58°S) that scrolls slowly
+behind the page. It is generated, not drawn. To rebuild it:
+
+```bash
+cd scripts
+npm install
+npm run build-map
 ```
 
-### Tag an image
+### Design notes
 
-```powershell
-docker tag weather-api:local weather-api:1.0.0
-docker image ls weather-api
+[`docs/design-handoff.md`](docs/design-handoff.md) describes the layout,
+design tokens, states, keyboard behaviour and accessibility requirements for
+the dashboard.
+
+## Deploying
+
+The image runs Gunicorn with two workers on port 5000 and has a Docker health
+check on `/healthz`.
+
+```bash
+docker run -d --name weather-lookup -p 5000:5000 --restart unless-stopped weather-lookup
+docker inspect --format='{{json .State.Health}}' weather-lookup
 ```
 
-To publish the image, replace the image name with your registry namespace,
-run `docker login`, and use `docker push`.
+Things to know before putting it on the internet:
+
+- **TLS:** the container serves plain HTTP. Terminate HTTPS in a reverse proxy.
+- **Rate limiting is per process and per client address.** Behind a reverse
+  proxy every visitor can look like the proxy's address, so enforce limits at
+  the proxy or gateway as well.
+- **The cache and rate limiter are in memory.** They are not shared between
+  Gunicorn workers or between containers. Use a shared store such as Redis if
+  you scale out.
+- **Public providers have usage terms.** See below.
+
+GitHub Actions also builds the image and, on pushes to `main` and version tags,
+publishes it to the GitHub Container Registry.
+
+## Data sources and credits
+
+| What | Provider | Notes |
+| --- | --- | --- |
+| Weather, city search | [Open-Meteo](https://open-meteo.com/) | Free for non-commercial use, no key. Attribution is shown on the page. Check their terms for commercial use. |
+| Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
+| IP location (`/location` only) | [ipapi.co](https://ipapi.co/) | Rate limited on the free tier. |
+| Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
+| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
+
+This project is released under the license in [`LICENSE`](LICENSE).

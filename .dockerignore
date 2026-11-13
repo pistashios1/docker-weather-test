@@ -5,3 +5,6 @@ __pycache__
 .gitignore
 tests
 README.md
+node_modules
+scripts
+docs
