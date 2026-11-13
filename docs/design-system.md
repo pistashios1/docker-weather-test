@@ -91,7 +91,9 @@ they scale with the viewport. `--font-sans` is Space Grotesk Variable
   `role="alert"`; a separate `role="status"` region announces results.
 - **Switch:** `role="switch"` with `aria-checked`; the choice is remembered.
 - **Background map:** `aria-hidden`, paused by the switch, off when the visitor
-  prefers reduced motion.
+  prefers reduced motion. On desktop, the low-opacity location marker sits
+  inside the map track, uses the weather response coordinates, and is hidden
+  below 36rem.
 
 ## Do and don't
 

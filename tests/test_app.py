@@ -284,6 +284,7 @@ def test_index_links_dashboard_assets():
 
     assert "/static/css/dashboard.css" in page
     assert "/static/js/dashboard.js" in page
+    assert "data-map-marker" in page
     assert "<style>" not in page
     assert "<script>" not in page
 
@@ -292,7 +293,9 @@ def test_index_links_dashboard_assets():
     ("path", "content_type"),
     [
         ("css/dashboard.css", "text/css"),
+        ("css/map-marker.css", "text/css"),
         ("js/dashboard.js", "javascript"),
+        ("js/map-marker.js", "javascript"),
         ("js/format.js", "javascript"),
         ("js/search-box.js", "javascript"),
         ("js/storage.js", "javascript"),
