@@ -80,6 +80,7 @@ they scale with the viewport. `--font-sans` is Space Grotesk Variable
 | Result panel | `#panel[data-state]` | empty, locating, loading, error, ready | five states |
 | Hero | `.hero` | tone × condition | n/a |
 | Forecast card | `.forecast-card` | one | n/a |
+| Toast | `.toast`, `#toast` | one | shown, dismissed (button or after 8 s) |
 | Skeleton | `.skeleton` | big, default, short | gentle pulse, appears after 300 ms; stopped under reduced motion |
 
 ### Accessibility notes per component

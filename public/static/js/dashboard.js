@@ -27,7 +27,8 @@ const [
 const $ = (selector) => document.querySelector(selector);
 
 const REQUEST_TIMEOUT_MS = 10000;
-const IP_LOOKUP_TIMEOUT_MS = 4000;
+const IP_LOOKUP_TIMEOUT_MS = 6000;
+const TOAST_MS = 8000;
 const LOCATION_CACHE_TTL_MS = 15 * 60 * 1000;
 const LOCATION_PROMPT_TIMEOUT_MS = 8000;
 const FORECAST_HOURS = 12;
@@ -218,9 +219,6 @@ const render = () => {
   const condition = conditionForCode(Number(current.weather_code));
 
   $("#location-name").textContent = selectedLocation.name;
-  const note = $("#location-note");
-  note.textContent = selectedLocation.note || "";
-  note.hidden = !selectedLocation.note;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
   $("#local-time").textContent = formatClock(current.time || lastFetchedAt);
   $("#utc-offset").textContent = formatUtcOffset(lastData.timezone);
@@ -335,11 +333,36 @@ const applyLocation = (location, updateSearchField = true) => {
   loadWeather();
 };
 
-// The page never asks for browser location permission by itself. It first
-// estimates a position from the visitor's IP address (server side, /location)
-// and falls back to New York. This happens silently: the visitor just sees the
-// normal loading state, then weather. Permission is requested only from
-// useMyLocation.
+/* ---------- Toast (short message that dismisses itself) ---------- */
+
+const toast = $("#toast");
+const toastText = $("#toast-text");
+let toastTimer = null;
+
+const hideToast = () => {
+  clearTimeout(toastTimer);
+  toast.hidden = true;
+};
+
+const showToast = (text) => {
+  clearTimeout(toastTimer);
+  toastText.textContent = text;
+  toast.hidden = false;
+  toastTimer = setTimeout(hideToast, TOAST_MS);
+};
+
+$("#toast-close").addEventListener("click", hideToast);
+
+const MESSAGE_DENIED = "Location permission was denied.";
+const MESSAGE_UNAVAILABLE = "Your location could not be found.";
+
+// Start-up order:
+//   1. Ask the server to estimate a position from the visitor's IP address
+//      (/location). This is silent: the visitor sees the normal loading
+//      state, then weather.
+//   2. If that fails, ask the browser for permission straight away.
+//   3. If permission is denied (or the position can't be found), show New York.
+// "Use my location" goes straight to the browser's permission prompt.
 const useApproximateLocation = async () => {
   const attempt = locationAttempt;
   setBusy(true);
@@ -347,39 +370,28 @@ const useApproximateLocation = async () => {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS);
-  let location = DEFAULT_LOCATION;
+  let location = null;
   try {
     const data = await fetchJson("/location", controller.signal);
     if (Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
       const name = typeof data.name === "string" ? data.name.trim() : "";
-      location = {
-        latitude: data.latitude,
-        longitude: data.longitude,
-        name: name || "Your area",
-      };
+      location = { latitude: data.latitude, longitude: data.longitude, name: name || "Your area" };
     }
   } catch {
-    // Unavailable (private address, provider down, slow): use the fallback.
+    // Unavailable (private address, provider down, slow): ask the browser instead.
   } finally {
     clearTimeout(timer);
   }
 
   if (attempt !== locationAttempt) return; // The visitor chose a place meanwhile.
-  applyLocation(location, false);
+  if (location) applyLocation(location, false);
+  else requestPreciseLocation();
 };
 
-// A precise lookup failed. Keep what is on screen and say why.
-const keepCurrentLocation = (reason) => {
-  if (!lastData || !selectedLocation) {
-    useApproximateLocation();
-    return;
-  }
-  const message = `${reason} Still showing ${selectedLocation.name}.`;
-  selectedLocation = { ...selectedLocation, note: message };
-  setBusy(false);
-  render();
-  setState("ready");
-  announce(message);
+// The precise lookup failed or was refused: show New York and say why.
+const useDefaultLocation = (message) => {
+  showToast(message);
+  applyLocation(DEFAULT_LOCATION, false);
 };
 
 const readUserLocation = () => {
@@ -444,21 +456,18 @@ const resolveBrowserLocation = async ({ coords }, attempt) => {
   applyLocation(location, false);
 };
 
-const useMyLocation = () => {
-  searchInput.value = "";
-  if (useCachedUserLocation()) return;
-
+const requestPreciseLocation = () => {
   const attempt = locationAttempt;
   setBusy(true);
   setState("locating");
 
   if (!navigator.geolocation) {
-    keepCurrentLocation("Your browser cannot share its location.");
+    useDefaultLocation(MESSAGE_UNAVAILABLE);
     return;
   }
 
-  // This is the only place the browser's permission prompt is triggered, and
-  // only after the visitor clicks "Use my location".
+  // The browser's permission prompt is triggered only from here, which runs
+  // when the visitor clicks "Use my location" or when the IP lookup failed.
   announce("Requesting your location…");
 
   let settled = false;
@@ -470,11 +479,7 @@ const useMyLocation = () => {
     handler(...args, attempt);
   };
   const fail = (error) =>
-    keepCurrentLocation(
-      error && error.code === 1
-        ? "Location permission was not granted."
-        : "Your precise location could not be found."
-    );
+    useDefaultLocation(error && error.code === 1 ? MESSAGE_DENIED : MESSAGE_UNAVAILABLE);
   const promptTimer = setTimeout(settle(fail), LOCATION_PROMPT_TIMEOUT_MS);
 
   navigator.geolocation.getCurrentPosition(settle(resolveBrowserLocation), settle(fail), {
@@ -482,6 +487,13 @@ const useMyLocation = () => {
     timeout: LOCATION_PROMPT_TIMEOUT_MS,
     maximumAge: 300000,
   });
+};
+
+const useMyLocation = () => {
+  searchInput.value = "";
+  hideToast();
+  if (useCachedUserLocation()) return;
+  requestPreciseLocation();
 };
 
 const refreshWeather = () => {

@@ -519,12 +519,6 @@ main {
   overflow-wrap: anywhere;
 }
 
-.location-note {
-  margin: var(--space-2) 0 0;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-}
-
 .location-meta {
   margin: var(--space-1) 0 0;
   color: var(--color-muted);
@@ -815,4 +809,39 @@ footer a { color: inherit; }
   z-index: 1;
   padding: var(--space-4);
   text-align: center;
+}
+
+/* Short message that appears over the page, e.g. when location permission is denied. */
+.toast {
+  position: fixed;
+  inset: auto var(--space-4) var(--space-4) var(--space-4);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: fit-content;
+  max-width: 28rem;
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.toast[hidden] { display: none; }
+
+.toast-close {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  font: inherit;
+  font-size: var(--text-lg);
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }

@@ -94,7 +94,6 @@
             Local time: <span id="local-time">--</span> (<span id="utc-offset">UTC --</span>)
              · <span id="coordinates">--</span>
           </p>
-          <p class="location-note" id="location-note" hidden></p>
         </div>
 
         <div class="hero">
@@ -137,6 +136,11 @@
       Animate background
     </button>
   </footer>
+
+  <div class="toast" id="toast" role="alert" hidden>
+    <span id="toast-text"></span>
+    <button class="toast-close" id="toast-close" type="button" aria-label="Dismiss message">×</button>
+  </div>
 
   <noscript>
     <p class="noscript-note">This page needs JavaScript to look up the weather.</p>
