@@ -94,10 +94,10 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
 
 The page never asks for location permission by itself. When it opens, the
-server estimates where you are from your IP address, which is usually accurate
-to the city or region and can be wrong (VPNs and mobile networks often are). A
-note under the place name says when the location is approximate. If the estimate
-is not available, the dashboard shows **New York** and says so.
+server quietly estimates where you are from your IP address, so weather appears
+straight away with no extra prompts or messages. The estimate is usually
+accurate to the city or region and can be wrong (VPNs and mobile networks often
+are). If it is not available, the dashboard shows **New York**.
 
 The browser's permission prompt appears only after you click **Use my
 location**. If you deny it, the dashboard keeps showing the current place and
@@ -313,7 +313,7 @@ reverse proxy in front.
 `PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
 **The page shows New York, or the wrong city, when it opens.** The page starts
-from an IP-based estimate. New York means the estimate was unavailable (you are
+from a silent IP-based estimate. New York means the estimate was unavailable (you are
 on a local or private address such as `localhost`, or the provider is rate
 limited). A wrong city is normal for VPNs and mobile networks. Press **Use my
 location** and allow the browser prompt for a precise position. If you denied

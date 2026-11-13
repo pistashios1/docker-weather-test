@@ -36,9 +36,6 @@ const SEARCH_AFFINITY_KEY = "weather-search-affinity";
 const MAP_STORAGE_KEY = "weather-map-animation";
 const USER_LOCATION_KEY = "user-location";
 const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.006, name: "New York" };
-const NOTE_APPROXIMATE =
-  "Approximate location from your network. Choose “Use my location” for a precise one.";
-const NOTE_FALLBACK = "Showing New York because your location could not be estimated.";
 
 const form = $("#weather-form");
 const searchInput = $("#location-search");
@@ -340,16 +337,17 @@ const applyLocation = (location, updateSearchField = true) => {
 
 // The page never asks for browser location permission by itself. It first
 // estimates a position from the visitor's IP address (server side, /location)
-// and falls back to New York. Permission is requested only from useMyLocation.
+// and falls back to New York. This happens silently: the visitor just sees the
+// normal loading state, then weather. Permission is requested only from
+// useMyLocation.
 const useApproximateLocation = async () => {
   const attempt = locationAttempt;
   setBusy(true);
   setState("loading");
-  announce("Finding your approximate location…");
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS);
-  let location = { ...DEFAULT_LOCATION, note: NOTE_FALLBACK };
+  let location = DEFAULT_LOCATION;
   try {
     const data = await fetchJson("/location", controller.signal);
     if (Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
@@ -358,7 +356,6 @@ const useApproximateLocation = async () => {
         latitude: data.latitude,
         longitude: data.longitude,
         name: name || "Your area",
-        note: NOTE_APPROXIMATE,
       };
     }
   } catch {

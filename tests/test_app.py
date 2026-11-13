@@ -599,7 +599,9 @@ def test_page_does_not_request_geolocation_permission_on_load():
     assert 'locationButton.addEventListener("click"' in script
 
 
-def test_page_has_a_note_for_approximate_locations():
-    page = app.test_client().get("/").get_data(as_text=True)
+def test_ip_lookup_is_silent():
+    script = (STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+    lookup = script[script.index("const useApproximateLocation"):script.index("// A precise lookup failed")]
 
-    assert 'id="location-note"' in page
+    assert "announce(" not in lookup
+    assert "note" not in lookup
