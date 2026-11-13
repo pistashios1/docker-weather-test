@@ -10,8 +10,7 @@ twelve hours for any city or your current location.
 - Run it locally with Python or Docker. No account or API key is required.
 
 ![Weather Lookup dashboard showing current New York conditions, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
-
-*The dashboard running locally with New York as the fallback location.*
+*The dashboard running locally (New York shown).*
 
 ## Try it in two minutes
 
@@ -55,7 +54,7 @@ macOS or Linux:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python weather_app.py
+python -m app.weather_app
 ```
 
 Windows (PowerShell):
@@ -64,7 +63,7 @@ Windows (PowerShell):
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python weather_app.py
+python -m app.weather_app
 ```
 
 ### Open it
@@ -111,19 +110,19 @@ recent picks are stored only in your browser.
 ## How it works
 
 ```text
-Browser (static/ + templates/)
+Browser (app/static/ + app/templates/)
    |
    |  GET /search           find a city by name
    |  GET /weather          current conditions + hourly forecast
    |  GET /reverse-location turn browser coordinates into a place name
    v
-Flask app (weather_app.py)  --  validates input, caches, rate limits
+Flask app (app/weather_app.py)  --  validates input, caches, rate limits
    |
    |--> Open-Meteo forecast   weather
    |--> Open-Meteo geocoding  city search
    |--> OpenStreetMap Nominatim   place name for browser coordinates
    v
-JSON validated by api_contracts.py, then returned to the browser
+JSON validated by app/api_contracts.py, then returned to the browser
 ```
 
 The app is stateless and stores no weather data. Responses from the providers
@@ -242,7 +241,7 @@ Set environment variables before starting the app. All are optional.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `PORT` | `5000` | Port for `python weather_app.py` only. The Docker image always listens on 5000. |
+| `PORT` | `5000` | Port for `python -m app.weather_app` only. The Docker image always listens on 5000. |
 | `TEMPERATURE_UNIT` | `fahrenheit` | `fahrenheit` or `celsius`. See the note below. |
 | `WIND_SPEED_UNIT` | `mph` | `mph`, `kmh` or `ms`. See the note below. |
 | `WEATHER_CACHE_TTL` | `30` | Seconds to cache a weather result. |
@@ -265,14 +264,14 @@ Example:
 
 ```bash
 # macOS or Linux
-PORT=8000 RATE_LIMIT=120 python weather_app.py
+PORT=8000 RATE_LIMIT=120 python -m app.weather_app
 ```
 
 ```powershell
 # Windows (PowerShell)
 $env:PORT = "8000"
 $env:RATE_LIMIT = "120"
-python weather_app.py
+python -m app.weather_app
 ```
 
 The server also sends `X-Content-Type-Options`, `X-Frame-Options`,
@@ -287,7 +286,7 @@ reverse proxy in front.
 
 **"Address already in use" on startup.** Something else is using port 5000
 (AirPlay Receiver on macOS is a common one). Start the app on another port:
-`PORT=8000 python weather_app.py`, or `docker run -p 8000:5000 weather-lookup`.
+`PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
 **The page shows New York instead of my location.** The browser's location
 permission was denied, dismissed, or did not answer in eight seconds. Allow
@@ -307,25 +306,26 @@ the limit.
 `WIND_SPEED_UNIT` are not set (see [Configuration](#configuration)).
 
 **The page is unstyled or blank.** The CSS and JavaScript load from `/static`.
-If you build your own image, make sure it includes the `static` folder.
+If you build your own image, make sure it includes the `app/static` folder.
 
 ## Development
 
 ### Project layout
 
 ```text
-weather_app.py        Flask app: routes, caching, rate limiting
-api_contracts.py      Validation of provider responses and API shapes
-templates/
-  weather_dashboard.html   Page markup
-static/
-  css/dashboard.css        Styles and design tokens
-  js/dashboard.js          Page logic
-  js/search-box.js         Accessible city search (ARIA combobox)
-  js/format.js             Units, weather-code labels, number formatting
-  js/storage.js            Safe localStorage wrapper
-  img/world-map.svg        Background map (generated, see below)
-  fonts/                   Space Grotesk (self-hosted) and its licence
+app/
+  weather_app.py           Flask app: routes, caching, rate limiting
+  api_contracts.py         Validation of provider responses and API shapes
+  templates/
+    weather_dashboard.html Page markup
+  static/
+    css/dashboard.css      Styles and design tokens
+    js/dashboard.js        Page logic
+    js/search-box.js       Accessible city search (ARIA combobox)
+    js/format.js           Units, weather-code labels, number formatting
+    js/storage.js          Safe localStorage wrapper
+    img/world-map.svg      Background map (generated, see below)
+    fonts/                 Space Grotesk (self-hosted) and its licence
 scripts/
   build-world-map.mjs      Generates the map from Natural Earth data
 tests/test_app.py         Test suite
@@ -345,7 +345,7 @@ they run offline. GitHub Actions runs them on every push and pull request.
 
 ### Change the background map
 
-`static/img/world-map.svg` is an outline of real coastlines (Natural Earth
+`app/static/img/world-map.svg` is an outline of real coastlines (Natural Earth
 1:110m data, equirectangular projection, 84°N to 58°S) that scrolls slowly
 behind the page. It is generated, not drawn. To rebuild it:
 
@@ -399,6 +399,6 @@ publishes it to the GitHub Container Registry.
 | Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
 | IP location (`/location` only) | [ipapi.co](https://ipapi.co/) | Rate limited on the free tier. |
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
-| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
+| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `app/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
 
 This project is released under the license in [`LICENSE`](LICENSE).

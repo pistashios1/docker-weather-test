@@ -1,7 +1,8 @@
 # Weather Lookup design system
 
 The tokens and components behind the dashboard. Everything lives in
-[`static/css/dashboard.css`](../static/css/dashboard.css); the layout, states and
+[`app/static/css/dashboard.css`](../app/static/css/dashboard.css); the layout,
+states and
 interaction spec is in [`design-handoff.md`](design-handoff.md). Dark mode is
 automatic (`prefers-color-scheme`), and every token below has a dark value.
 

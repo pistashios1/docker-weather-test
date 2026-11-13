@@ -1,7 +1,8 @@
 # Handoff spec: weather dashboard
 
-Design handoff for `templates/weather_dashboard.html`, with `static/css/dashboard.css`
-and `static/js/*`. It describes what the page must do so a change can be checked
+Design handoff for `app/templates/weather_dashboard.html`, with
+`app/static/css/dashboard.css` and `app/static/js/*`. It describes what the page
+must do so a change can be checked
 against it.
 
 ## Overview
@@ -41,7 +42,7 @@ Defined as CSS custom properties at the top of `dashboard.css`. Use tokens, not 
 | `--radius-sm`, `-md`, `-pill` | 0.4rem, 0.75rem, 999px | | Radii. Buttons and toggles are pills. |
 | `--motion-fast`, `--motion-base` | 150ms, 250ms | | Transitions |
 
-Type: Space Grotesk (variable, self-hosted from `static/fonts`, with a system
+Type: Space Grotesk (variable, self-hosted from `app/static/fonts`, with a system
 fallback) for everything except the page title, which is Times New Roman
 (`--font-title`). The title is `clamp(1.75rem, 5vw, 2.25rem)`; the temperature is
 `clamp(3.5rem, 16vw, 5.5rem)`, bold, with tabular numbers. The accented-character
@@ -116,7 +117,7 @@ effectively instant and the map does not move.
 
 ## Background map
 
-`static/img/world-map.svg`: coastlines from Natural Earth 1:110m, equirectangular,
+`app/static/img/world-map.svg`: coastlines from Natural Earth 1:110m, equirectangular,
 360° of longitude by 142° of latitude (84°N to 58°S, Antarctica omitted), with a
 graticule every 30° and the equator and tropics dashed. It is used as a CSS mask
 so the line colour follows the theme. The track is one map wider than the

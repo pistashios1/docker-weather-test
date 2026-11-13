@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from weather_app import AppConfig, app, create_app
+from app.weather_app import AppConfig, app, create_app
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "app" / "static"
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +33,7 @@ def test_location_returns_ip_coordinates():
         "country_name": "United States",
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response) as get:
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
         result = app.test_client().get("/location")
 
     assert result.status_code == 200
@@ -47,7 +47,7 @@ def test_location_returns_ip_coordinates():
 
 
 def test_location_reports_lookup_failure():
-    with patch("weather_app.requests.Session.get", side_effect=requests.RequestException):
+    with patch("app.weather_app.requests.Session.get", side_effect=requests.RequestException):
         result = app.test_client().get("/location")
 
     assert result.status_code == 502
@@ -68,7 +68,7 @@ def test_search_returns_comprehensive_location_results():
         ]
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response) as get:
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
         result = app.test_client().get("/search?q=Paris")
 
     assert result.status_code == 200
@@ -108,7 +108,7 @@ def test_search_scores_relevance_before_proximity_and_population():
         ]
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response):
+    with patch("app.weather_app.requests.Session.get", return_value=response):
         result = app.test_client().get(
             "/search?q=Ne&latitude=40.71&longitude=-74.01"
         )
@@ -126,7 +126,7 @@ def test_reverse_location_returns_city_name():
         "address": {"city": "New York", "state": "New York", "country": "United States"}
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response):
+    with patch("app.weather_app.requests.Session.get", return_value=response):
         result = app.test_client().get("/reverse-location?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 200
@@ -153,7 +153,7 @@ def test_weather_returns_current_conditions():
         },
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response) as get:
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
         result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 200
@@ -170,7 +170,7 @@ def test_weather_rejects_out_of_range_coordinates():
 
 
 def test_weather_reports_upstream_failure():
-    with patch("weather_app.requests.Session.get", side_effect=requests.RequestException):
+    with patch("app.weather_app.requests.Session.get", side_effect=requests.RequestException):
         result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 502
@@ -181,7 +181,7 @@ def test_weather_reports_invalid_upstream_json():
     response = Mock()
     response.json.side_effect = ValueError
 
-    with patch("weather_app.requests.Session.get", return_value=response):
+    with patch("app.weather_app.requests.Session.get", return_value=response):
         result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 502
@@ -218,7 +218,7 @@ def test_weather_reports_invalid_upstream_schema():
         "current": {"temperature_2m": 72.5, "wind_speed_10m": 4.2},
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response):
+    with patch("app.weather_app.requests.Session.get", return_value=response):
         result = app.test_client().get("/weather?latitude=40.71&longitude=-74.01")
 
     assert result.status_code == 502
@@ -245,7 +245,7 @@ def test_weather_uses_cache():
         },
     }
 
-    with patch("weather_app.requests.Session.get", return_value=response) as get:
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
         client = app.test_client()
         assert client.get("/weather?latitude=40.71&longitude=-74.01").status_code == 200
         assert client.get("/weather?latitude=40.71&longitude=-74.01").status_code == 200

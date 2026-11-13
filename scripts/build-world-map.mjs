@@ -1,4 +1,4 @@
-// Builds static/img/world-map.svg: an outline-only world map used as the
+// Builds app/static/img/world-map.svg: an outline-only world map used as the
 // dashboard's background.
 //
 // Data: Natural Earth 1:110m land polygons (public domain), via the
@@ -18,7 +18,7 @@ import { geoEquirectangular, geoGraticule10, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outFile = resolve(here, "../static/img/world-map.svg");
+const outFile = resolve(here, "../app/static/img/world-map.svg");
 
 // 1 SVG unit = 1 degree. The map is cropped to 84N..58S: Antarctica is left out
 // because it would take a fifth of the height for a region almost nobody looks up.

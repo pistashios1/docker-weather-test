@@ -1,3 +1,4 @@
+import mimetypes
 import os
 import time
 import uuid
@@ -12,16 +13,30 @@ from flask import Flask, g, jsonify, render_template, request
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from api_contracts import (
-    InvalidUpstreamPayload,
-    error_response,
-    health_response,
-    validate_location_response,
-    validate_reverse_location_response,
-    validate_search_response,
-    validate_weather_response,
-    weather_response,
-)
+if __package__:
+    from .api_contracts import (
+        InvalidUpstreamPayload,
+        error_response,
+        health_response,
+        validate_location_response,
+        validate_reverse_location_response,
+        validate_search_response,
+        validate_weather_response,
+        weather_response,
+    )
+else:
+    from api_contracts import (
+        InvalidUpstreamPayload,
+        error_response,
+        health_response,
+        validate_location_response,
+        validate_reverse_location_response,
+        validate_search_response,
+        validate_weather_response,
+        weather_response,
+    )
+
+mimetypes.add_type("font/woff2", ".woff2")
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"

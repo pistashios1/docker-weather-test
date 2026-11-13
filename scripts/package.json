@@ -2,7 +2,7 @@
   "name": "weather-lookup-map-builder",
   "private": true,
   "type": "module",
-  "description": "Generates static/img/world-map.svg from Natural Earth coastline data.",
+  "description": "Generates app/static/img/world-map.svg from Natural Earth coastline data.",
   "scripts": {
     "build-map": "node build-world-map.mjs"
   },

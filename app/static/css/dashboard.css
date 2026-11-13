@@ -4,7 +4,7 @@
    ========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Fonts: Space Grotesk (SIL Open Font License, see static/fonts), self-hosted.
+   Fonts: Space Grotesk (SIL Open Font License, see app/static/fonts), self-hosted.
    The Latin subset is always needed; the extended subset (accents such as the
    "ł" in Łódź) downloads only when a place name uses it.
    --------------------------------------------------------------------------- */
@@ -672,14 +672,14 @@ footer {
 
 footer p {
   margin: 0;
-  text-wrap: balance;
+  white-space: nowrap;
 }
 
 footer a { color: inherit; }
 
 /* ---------------------------------------------------------------------------
    Decorative world map background
-   - An outline of real coastlines (static/img/world-map.svg, built by
+   - An outline of real coastlines (app/static/img/world-map.svg, built by
      scripts/build-world-map.mjs) used as a mask, so the line colour follows the
      theme.
    - One tile is exactly 360 degrees of longitude wide. The track is one tile
