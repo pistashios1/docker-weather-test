@@ -73,7 +73,6 @@ forecast.addEventListener(
 );
 
 let lastData = null; // Latest /weather payload (imperial units)
-let lastFetchedAt = null;
 let selectedLocation = null;
 let activeRequest = null; // AbortController of the in-flight weather request
 let busy = false;
@@ -220,7 +219,7 @@ const render = () => {
 
   $("#location-name").textContent = selectedLocation.name;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
-  $("#local-time").textContent = formatClock(current.time || lastFetchedAt);
+  $("#local-time").textContent = formatClock(new Date(), lastData.timezone);
   $("#utc-offset").textContent = formatUtcOffset(lastData.timezone);
   $("#condition").textContent = `${condition.icon} ${condition.label}`;
   $("#temperature").textContent = numberFormat(0).format(temperature);
@@ -298,7 +297,6 @@ const loadWeather = async () => {
     }
 
     lastData = data;
-    lastFetchedAt = new Date();
     render();
     mapMarker.setCoordinates(data.latitude, data.longitude);
     setState("ready");
