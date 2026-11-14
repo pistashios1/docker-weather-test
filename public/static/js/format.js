@@ -73,14 +73,18 @@ const formatApiTime = (isoTime, options) => {
 // Open-Meteo timestamps are local to the requested location and have no offset.
 export const formatHour = (isoTime) => formatApiTime(isoTime, { hour: "numeric" });
 
-export const formatClock = (value) => {
+export const formatClock = (value, timeZone) => {
   if (typeof value === "string") {
     return formatApiTime(value, { hour: "numeric", minute: "2-digit" });
   }
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.valueOf())
     ? "--"
-    : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    : date.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+        ...(timeZone ? { timeZone } : {}),
+      });
 };
 
 export const formatUtcOffset = (timeZone, value = new Date()) => {
