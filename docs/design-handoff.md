@@ -125,7 +125,12 @@ viewport and slides by exactly one map width, so the loop is seamless. Rebuild i
 with `scripts/build-world-map.mjs`. On desktop, a marker is projected into the
 same track from the latitude and longitude returned by the weather response:
 `x = (longitude + 180) / 360` and `y = (84 - latitude) / 142`, clamped to the
-tile bounds. It appears after a successful weather load inside the map track,
+tile bounds. The tile has a fixed size (`--tile-height: 44rem` on `.map-track`),
+independent of the viewport, so resizing the window or a browser prompt never
+rescales or re-seeks the map. The script only publishes the two ratios as
+`--marker-x` / `--marker-y`; CSS places the marker with `left = x * --tile-width`
+and `top = y * --tile-height`, the same variables the map is drawn with, so the
+two cannot drift apart. It appears after a successful weather load inside the map track,
 scrolls with the map, and pauses with it. The marker is hidden below 36rem and
 kept low-opacity so it remains decorative; it uses the map-line color in light
 mode and a subdued glowing white dot in dark mode.

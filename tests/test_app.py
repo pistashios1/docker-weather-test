@@ -417,6 +417,30 @@ def test_world_map_is_a_seamless_outline():
     assert max(len(path) for path in paths) > 10_000
 
 
+def test_map_tile_size_does_not_depend_on_the_viewport():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+    track = re.search(r"\.map-track\s*\{(.*?)\n\}", css, re.DOTALL)
+
+    assert track, ".map-track rule not found"
+    tile_height = re.search(r"--tile-height:\s*([^;]+);", track.group(1))
+    assert tile_height, "--tile-height not declared on .map-track"
+    # A vh/vw/% based tile rescales on resize while the marker keeps stale pixels.
+    assert not re.search(r"\d(vh|vw|vmin|vmax|svh|lvh|dvh)\b|%", tile_height.group(1))
+
+
+def test_map_marker_is_placed_from_the_maps_own_css_variables():
+    script = (STATIC_DIR / "js" / "map-marker.js").read_text(encoding="utf-8")
+    css = (STATIC_DIR / "css" / "map-marker.css").read_text(encoding="utf-8")
+
+    # JS hands over ratios only; it must not measure the DOM or write pixel positions.
+    assert "getBoundingClientRect" not in script
+    assert "style.left" not in script and "style.top" not in script
+    assert "--marker-x" in script and "--marker-y" in script
+    # CSS positions the marker with the same variables that size the map tile.
+    assert "var(--marker-x" in css and "var(--tile-width)" in css
+    assert "var(--marker-y" in css and "var(--tile-height)" in css
+
+
 def test_responses_carry_a_content_security_policy():
     result = app.test_client().get("/")
 

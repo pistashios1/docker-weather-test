@@ -753,6 +753,10 @@ footer a { color: inherit; }
 .map-bg {
   position: fixed;
   inset: 0;
+  /* Large viewport height: unlike 100% / vh it ignores mobile browser UI and
+     on-screen prompts appearing, so the map does not jump when they do. */
+  height: 100vh;
+  height: 100lvh;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
@@ -761,7 +765,10 @@ footer a { color: inherit; }
 }
 
 .map-track {
-  --tile-height: clamp(22rem, 80vh, 56rem);
+  /* A fixed size, deliberately not tied to the viewport. The map, the scroll
+     animation distance and the marker all derive from these two values, so
+     resizing the window or opening a prompt never rescales or re-seeks them. */
+  --tile-height: 44rem;
   --tile-width: calc(var(--tile-height) * 360 / 142); /* the SVG's aspect ratio */
 
   position: absolute;
