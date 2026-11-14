@@ -1,6 +1,12 @@
 /* Location marker for the decorative, tiled background map. */
 .map-marker {
+  /* --marker-x / --marker-y are 0..1 ratios of the tile (set by map-marker.js);
+     --tile-width / --tile-height come from .map-track. Placing the marker with
+     the same variables the map is drawn with keeps them locked together at any
+     viewport size. */
   position: absolute;
+  left: calc(var(--marker-x, 0) * var(--tile-width));
+  top: calc(var(--marker-y, 0) * var(--tile-height));
   display: none;
   width: 0.6rem;
   height: 0.6rem;
@@ -8,6 +14,11 @@
   background: var(--color-map-line);
   opacity: 0.55;
   transform: translate(-50%, -50%);
+}
+
+/* The track repeats the tile, so the second marker sits one tile to the right. */
+.map-marker + .map-marker {
+  left: calc((var(--marker-x, 0) + 1) * var(--tile-width));
 }
 
 @media (min-width: 36rem) {
