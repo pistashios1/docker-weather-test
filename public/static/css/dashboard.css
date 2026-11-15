@@ -26,12 +26,23 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Newsreader (SIL Open Font License, see public/static/fonts): the page title only.
+   One weight and the Latin subset, so it costs about 24 KB. */
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url("../fonts/newsreader-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ---------------------------------------------------------------------------
    Design tokens
    --------------------------------------------------------------------------- */
 :root {
   --font-sans: "Space Grotesk Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-title: "Times New Roman", Times, serif;
+  --font-title: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
   --color-bg: #eef4f8;
   --color-surface: #ffffff;
@@ -49,6 +60,22 @@
   --color-focus-ring: rgb(23 105 170 / 0.6);
   --color-map-line: rgb(23 33 43 / 0.12);
   --shadow-card: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1);
+
+  /* Glass: slightly translucent surfaces so the map shows through (Aero-style,
+     kept subtle). Text on glass is measured against the worst case behind it. */
+  --color-glass: rgb(255 255 255 / 0.54);
+  --color-glass-strong: rgb(255 255 255 / 0.97); /* toast: nearly opaque */
+  --color-glass-edge: rgb(255 255 255 / 0.75);
+  --color-glass-sheen: rgb(255 255 255 / 0.4);
+  --color-field: rgb(243 247 250 / 0.8);
+  --glass-blur: blur(4px) saturate(130%);
+  --shadow-glass: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1), inset 0 1px 0 var(--color-glass-edge);
+
+  --color-marker: #1769aa;
+  --color-marker-halo: rgb(23 105 170 / 0.22);
+  --marker-opacity: 0.9;
+
+  --fade-size: 2.5rem; /* width of the scroll-edge fade on the forecast */
 
   --text-xs: 0.75rem;
   --text-sm: 0.9rem;
@@ -92,6 +119,38 @@
     --color-focus-ring: rgb(130 195 245 / 0.6);
     --color-map-line: rgb(232 238 243 / 0.16);
     --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
+    --color-glass: rgb(24 35 46 / 0.52);
+    --color-glass-strong: rgb(24 35 46 / 0.97);
+    --color-glass-edge: rgb(255 255 255 / 0.14);
+    --color-glass-sheen: rgb(255 255 255 / 0.06);
+    --color-field: rgb(18 28 37 / 0.8);
+    --shadow-glass: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4), inset 0 1px 0 var(--color-glass-edge);
+    --color-marker: #ffffff;
+    --color-marker-halo: rgb(255 255 255 / 0.18);
+    /* Dimmer than light mode on purpose: a white dot passing behind glass pulled
+       muted text down to 3.0:1; at this opacity the worst case is 4.6:1 or better. */
+    --marker-opacity: 0.45;
+  }
+}
+
+/* No translucency when the visitor asks for none, or when the browser cannot
+   blur what is behind a surface (an unblurred see-through card is harder to read). */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --color-glass: var(--color-surface);
+    --color-glass-strong: var(--color-surface);
+    --color-glass-sheen: transparent;
+    --color-field: var(--color-surface-sunken);
+    --glass-blur: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --color-glass: var(--color-surface);
+    --color-glass-strong: var(--color-surface);
+    --color-glass-sheen: transparent;
+    --color-field: var(--color-surface-sunken);
   }
 }
 
@@ -114,6 +173,8 @@ h1 {
   margin: 0;
   font-family: var(--font-title);
   font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.15;
 }
 
@@ -144,12 +205,26 @@ main {
   padding: var(--space-6) var(--space-4) var(--space-5);
 }
 
+/* A glass card: a faint sheen across the top-left corner over a translucent
+   fill, an edge highlight, and a slight blur of the map behind it. */
 .card {
   width: 100%;
   padding: var(--space-5);
-  background: var(--color-surface);
+  background:
+    linear-gradient(135deg, var(--color-glass-sheen), transparent 40%),
+    var(--color-glass);
+  border: 1px solid var(--color-glass-edge);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* backdrop-filter makes each card its own stacking context, so the search card
+   must sit above the result card or its suggestion list would slide underneath. */
+.search-card {
+  position: relative;
+  z-index: 2;
 }
 
 .page-header {
@@ -254,9 +329,11 @@ main {
   display: inline-flex;
   justify-self: end;
   padding: 2px;
-  background: var(--color-surface);
+  background: var(--color-glass);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
 .segmented label {
@@ -306,10 +383,12 @@ main {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-glass);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
   cursor: pointer;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
 .switch .track {
@@ -363,7 +442,7 @@ main {
   padding: 0.65rem var(--space-4);
   font: inherit;
   color: inherit;
-  background: var(--color-surface-sunken);
+  background: var(--color-field);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
 }
@@ -382,7 +461,7 @@ main {
   max-height: min(24rem, 50vh);
   overflow-y: auto;
   padding: var(--space-2);
-  background: var(--color-surface);
+  background: var(--color-surface); /* opaque: a menu must not let the card behind it ghost through */
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
@@ -642,6 +721,29 @@ main {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
   scroll-snap-type: x proximity;
+
+  /* Edge fade: a side fades out only while there is more to scroll that way.
+     scroll-fade.js sets data-fade-start / data-fade-end from the scroll position. */
+  --fade-start: 0px;
+  --fade-end: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)), transparent 100%);
+}
+
+.forecast[data-fade-start="true"] { --fade-start: var(--fade-size); }
+.forecast[data-fade-end="true"] { --fade-end: var(--fade-size); }
+
+/* A mask also clips the focus ring, so where the browser supports :has() the
+   ring is drawn on the section around the strip instead of on the strip. */
+@supports selector(:has(*)) {
+  .forecast:focus-visible { outline: none; }
+
+  .forecast-section:has(.forecast:focus-visible) {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: -3px;
+  }
 }
 
 .forecast-card {
@@ -760,8 +862,8 @@ footer a { color: inherit; }
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.6) 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.6) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.8) 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.8) 100%);
 }
 
 .map-track {
@@ -832,10 +934,12 @@ footer a { color: inherit; }
   margin-inline: auto;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-glass-strong);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
 .toast[hidden] { display: none; }

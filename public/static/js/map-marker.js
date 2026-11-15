@@ -14,6 +14,11 @@ const MAP_PROJECTION = Object.freeze({
   east: 180,
 });
 
+// The map repeats every 360 degrees, so a wide screen shows the same place more
+// than once. One marker per copy of the tile: 8 copies cover about 14,000 CSS
+// pixels of width. Extra copies sit off-screen and cost nothing.
+export const MARKER_COPIES = 8;
+
 export const projectCoordinates = (latitude, longitude) => {
   if (
     !Number.isFinite(latitude) ||
@@ -36,11 +41,18 @@ export const projectCoordinates = (latitude, longitude) => {
   };
 };
 
-export const createMapMarker = ({ track, markers }) => {
-  const markerElements = Array.from(markers);
+export const createMapMarker = ({ track, copies = MARKER_COPIES }) => {
+  const markers = Array.from({ length: copies }, (_, index) => {
+    const marker = document.createElement("div");
+    marker.className = "map-marker";
+    marker.hidden = true;
+    marker.style.setProperty("--marker-index", String(index));
+    track.append(marker);
+    return marker;
+  });
 
   const clear = () => {
-    markerElements.forEach((marker) => {
+    markers.forEach((marker) => {
       marker.hidden = true;
     });
     track.style.removeProperty("--marker-x");
@@ -57,7 +69,7 @@ export const createMapMarker = ({ track, markers }) => {
     // Ratios only: CSS multiplies them by the live tile size.
     track.style.setProperty("--marker-x", String(point.x));
     track.style.setProperty("--marker-y", String(point.y));
-    markerElements.forEach((marker) => {
+    markers.forEach((marker) => {
       marker.hidden = false;
     });
   };

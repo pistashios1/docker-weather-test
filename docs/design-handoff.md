@@ -38,12 +38,15 @@ Defined as CSS custom properties at the top of `dashboard.css`. Use tokens, not 
 | `--color-primary` | #1769aa | #5eb1f0 | Primary button, links, selected toggle |
 | `--color-danger` | #b42318 | #ff9a8f | Errors |
 | `--color-map-line` | 12% ink | 16% light | Background map lines |
+| `--color-glass` | white 54% | #18232e 52% | Cards and small controls (frosted, 4px blur) |
+| `--color-glass-strong` | white 97% | #18232e 97% | Toast (the search menu is opaque `--color-surface`) |
+| `--color-marker` | #1769aa | #ffffff | Location marker (opacity 0.9 / 0.45) |
 | `--space-1` to `--space-6` | 0.25, 0.5, 0.75, 1, 1.5, 2.5 rem | | Spacing scale |
 | `--radius-sm`, `-md`, `-pill` | 0.4rem, 0.75rem, 999px | | Radii. Buttons and toggles are pills. |
 | `--motion-fast`, `--motion-base` | 150ms, 250ms | | Transitions |
 
 Type: Space Grotesk (variable, self-hosted from `public/static/fonts`, with a system
-fallback) for everything except the page title, which is Times New Roman
+fallback) for everything except the page title, which is Newsreader 600 (self-hosted)
 (`--font-title`). The title is `clamp(1.75rem, 5vw, 2.25rem)`; the temperature is
 `clamp(3.5rem, 16vw, 5.5rem)`, bold, with tabular numbers. The accented-character
 subset loads only when a place name needs it.
@@ -131,11 +134,24 @@ rescales or re-seeks the map. The script only publishes the two ratios as
 `--marker-x` / `--marker-y`; CSS places the marker with `left = x * --tile-width`
 and `top = y * --tile-height`, the same variables the map is drawn with, so the
 two cannot drift apart. It appears after a successful weather load inside the map track,
-scrolls with the map, and pauses with it. The marker is hidden below 36rem and
-kept low-opacity so it remains decorative; it uses the map-line color in light
-mode and a subdued glowing white dot in dark mode.
+scrolls with the map, and pauses with it. The marker is hidden below 36rem. It is
+a dot with a soft halo: blue in light mode, a dimmer white in dark mode (so text
+on the glass above it keeps 4.5:1). The map repeats every 360°, so
+`map-marker.js` adds one marker per repeat (`MARKER_COPIES = 8`, enough for about
+14,000 CSS pixels of width); each is offset by `--marker-index` tiles in CSS.
 The projection and marker lifecycle live in `public/static/js/map-marker.js`; its
 visual treatment is isolated in `public/static/css/map-marker.css`.
+
+## Glass, edge fade and focus
+
+Cards and small controls are frosted glass over the map (see
+[`design-system.md`](design-system.md#glass-and-contrast) for the numbers). The
+hourly forecast fades at a side only while it can scroll that way:
+`scroll-fade.js` sets `data-fade-start` / `data-fade-end` from the scroll
+position, the strip's size and its content, and CSS masks the strip. The strip's
+visible width is `offsetWidth`, not `clientWidth`, because the reserved scrollbar
+gutter would otherwise leave the end fade on. When the strip is focused, the
+focus ring is drawn around the whole forecast section.
 
 ## Edge cases
 

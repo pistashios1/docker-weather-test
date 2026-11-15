@@ -361,7 +361,7 @@ public/static/             Served at /static (by Vercel's CDN, or by Flask local
   js/format.js             Units, weather-code labels, number formatting
   js/storage.js            Safe localStorage wrapper
   img/world-map.svg        Background map (generated, see below)
-  fonts/                   Space Grotesk (self-hosted) and its licence
+  fonts/                   Space Grotesk and Newsreader (self-hosted) and their licences
 vercel.json                Vercel function and static-file cache settings
 pyproject.toml             Python version, dependencies and Vercel entrypoint
 scripts/
@@ -474,6 +474,7 @@ publishes it to the GitHub Container Registry.
 | Place name for browser coordinates | [OpenStreetMap Nominatim](https://nominatim.org/) | Public instance with a strict usage policy. For heavy use run your own and set `REVERSE_GEOCODING_URL`. |
 | Approximate location from the visitor's IP address | Vercel request headers; otherwise [ipapi.co](https://ipapi.co/) | On Vercel nothing leaves the deployment. Elsewhere the visitor's public IP address is sent to ipapi.co when the page opens (rate limited on the free tier). If both are unavailable the browser is asked for permission instead. |
 | Background map | [Natural Earth](https://www.naturalearthdata.com/) | Public domain, via the `world-atlas` package. |
-| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `public/static/fonts` so the page makes no font requests to third parties. The page title uses Times New Roman. |
+| Typeface | [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | SIL Open Font License 1.1, self-hosted from `public/static/fonts` so the page makes no font requests to third parties. |
+| Title typeface | [Newsreader](https://github.com/productiontype/Newsreader) | SIL Open Font License 1.1, self-hosted (one weight, Latin subset, about 24 KB). Used for the page title only. |
 
 This project is released under the MIT license in [`LICENSE`](LICENSE).
