@@ -1,7 +1,7 @@
 import re
-import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 from unittest.mock import Mock, patch
+from xml.etree import ElementTree
 
 import pytest
 import requests

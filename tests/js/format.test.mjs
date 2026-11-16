@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
+  formatHour, formatUtcOffset, mphToKmh, toneForFahrenheit,
+} from "../../public/static/js/format.js";
+
+test("unit conversions", () => {
+  assert.equal(fahrenheitToCelsius(32), 0);
+  assert.equal(fahrenheitToCelsius(212), 100);
+  assert.ok(Math.abs(mphToKmh(10) - 16.09344) < 1e-9);
+});
+
+test("toneForFahrenheit boundaries", () => {
+  const cases = [[32, "freezing"], [33, "cool"], [55, "cool"], [56, "mild"],
+    [75, "mild"], [76, "warm"], [90, "warm"], [91, "hot"]];
+  for (const [f, tone] of cases) assert.equal(toneForFahrenheit(f), tone, `${f}F`);
+});
+
+test("conditionForCode maps WMO codes and falls back", () => {
+  assert.equal(conditionForCode(0).label, "Clear");
+  assert.equal(conditionForCode(48).key, "fog");
+  assert.equal(conditionForCode(53).key, "rain");
+  assert.equal(conditionForCode(81).label, "Rain");
+  assert.equal(conditionForCode(75).label, "Snow");
+  assert.equal(conditionForCode(99).label, "Thunderstorm");
+  assert.equal(conditionForCode(4).key, "unknown");
+  assert.equal(conditionForCode(undefined).key, "unknown");
+});
+
+test("API local times are shown as written, not shifted by the viewer's zone", () => {
+  assert.match(formatHour("2026-11-15T14:00"), /2/);
+  assert.match(formatClock("2026-11-15T09:05"), /9:05/);
+  assert.equal(formatHour("garbage"), "--");
+  assert.equal(formatClock(Number.NaN), "--");
+});
+
+test("formatClock honours an explicit time zone for dates", () => {
+  const noonUtc = new Date("2026-11-15T12:00:00Z");
+  assert.match(formatClock(noonUtc, "UTC"), /12:00/);
+});
+
+test("formatUtcOffset", () => {
+  const when = new Date("2026-01-15T12:00:00Z");
+  assert.equal(formatUtcOffset("UTC", when), "UTC+0");
+  assert.equal(formatUtcOffset("Asia/Kolkata", when), "UTC+5:30");
+  assert.equal(formatUtcOffset("America/New_York", when), "UTC-5");
+  assert.equal(formatUtcOffset("Not/AZone", when), "UTC");
+});
+
+test("formatCoordinates uses hemisphere letters", () => {
+  assert.match(formatCoordinates(40.71, -74.01), /^40\.71° N, 74\.01° W$/);
+  assert.match(formatCoordinates(-33.87, 151.21), /^33\.87° S, 151\.21° E$/);
+});

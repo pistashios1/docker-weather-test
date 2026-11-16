@@ -381,6 +381,17 @@ The tests cover every endpoint, input validation, provider failures, caching,
 rate limiting, security headers, the page and its static files. They use mocked providers, so
 they run offline. GitHub Actions runs them on every push and pull request.
 
+Frontend and browser tests (Node 20+):
+
+```bash
+ruff check .                          # lint
+node --test "tests/js/*.test.mjs"     # unit tests for the ES modules, no dependencies
+cd tests/e2e && npm ci && npx playwright install chromium
+npx playwright test                   # resize and location-fallback tests; providers are mocked
+```
+
+Set `E2E_NO_SANDBOX=1` when Chromium runs as root inside a container.
+
 ### Change the background map
 
 `public/static/img/world-map.svg` is an outline of real coastlines (Natural Earth
