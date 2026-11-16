@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
   <title>Weather Lookup</title>
   <link rel="preload" href="{{ url_for('static', filename='fonts/space-grotesk-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/newsreader-latin-600-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=asset_version) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/map-marker.css', v=asset_version) }}">
   <script type="module" src="{{ url_for('static', filename='js/dashboard.js', v=asset_version) }}"></script>
@@ -16,8 +17,7 @@
   <div class="map-bg" id="map-bg" data-animate="true" aria-hidden="true">
     <div class="map-track" id="map-track">
       <div class="map-lines"></div>
-      <div class="map-marker" data-map-marker hidden></div>
-      <div class="map-marker" data-map-marker hidden></div>
+      <!-- map-marker.js adds one marker per repeat of the world here. -->
     </div>
   </div>
 
