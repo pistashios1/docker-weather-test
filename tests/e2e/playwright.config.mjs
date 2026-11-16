@@ -12,6 +12,7 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     launchOptions: { args },
+    channel: process.env.E2E_CHANNEL || undefined,
   },
   webServer: {
     command: `python -m app.weather_app`,
