@@ -7,7 +7,7 @@
     "build-map": "node build-world-map.mjs"
   },
   "dependencies": {
-    "d3-geo": "3.1.1",
+    "d3-geo": "3.1.2",
     "topojson-client": "3.1.0",
     "world-atlas": "2.0.2"
   }
