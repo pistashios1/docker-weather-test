@@ -53,6 +53,35 @@ def validate_location_response(data: Any) -> dict[str, Any]:
     }
 
 
+MAX_SEARCH_RESULTS = 10
+
+
+def _parse_search_item(item: Any) -> dict[str, Any] | None:
+    """Return one cleaned search result, or None if the item should be skipped."""
+    if not isinstance(item, dict):
+        return None
+    try:
+        latitude = float(item["latitude"])
+        longitude = float(item["longitude"])
+        name = str(item["name"]).strip()
+        population = float(item.get("population") or 0)
+    except (KeyError, TypeError, ValueError):
+        return None
+    in_range = -90 <= latitude <= 90 and -180 <= longitude <= 180
+    if not name or population < 0 or not in_range:
+        return None
+    context = ", ".join(
+        str(item[field]).strip() for field in ("admin1", "country") if item.get(field)
+    )
+    return {
+        "name": name,
+        "context": context,
+        "latitude": latitude,
+        "longitude": longitude,
+        "population": population,
+    }
+
+
 def validate_search_response(data: Any) -> list[dict[str, Any]]:
     if not isinstance(data, dict):
         raise InvalidUpstreamPayload("location search payload is invalid")
@@ -62,39 +91,8 @@ def validate_search_response(data: Any) -> list[dict[str, Any]]:
         raise InvalidUpstreamPayload("location search payload is invalid")
     if not isinstance(data["results"], list):
         raise InvalidUpstreamPayload("location search payload is invalid")
-    results = []
-    for item in data["results"][:10]:
-        if not isinstance(item, dict):
-            continue
-        try:
-            latitude = float(item["latitude"])
-            longitude = float(item["longitude"])
-            name = str(item["name"]).strip()
-            population = float(item.get("population") or 0)
-        except (KeyError, TypeError, ValueError):
-            continue
-        if (
-            not name
-            or population < 0
-            or not -90 <= latitude <= 90
-            or not -180 <= longitude <= 180
-        ):
-            continue
-        context = ", ".join(
-            str(item[field]).strip()
-            for field in ("admin1", "country")
-            if item.get(field)
-        )
-        results.append(
-            {
-                "name": name,
-                "context": context,
-                "latitude": latitude,
-                "longitude": longitude,
-                "population": population,
-            }
-        )
-    return results
+    parsed = (_parse_search_item(item) for item in data["results"][:MAX_SEARCH_RESULTS])
+    return [result for result in parsed if result is not None]
 
 
 def validate_reverse_location_response(data: Any) -> dict[str, str]:
