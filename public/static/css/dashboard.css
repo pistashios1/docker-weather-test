@@ -119,7 +119,7 @@
     --color-focus-ring: rgb(130 195 245 / 0.6);
     --color-map-line: rgb(232 238 243 / 0.16);
     --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
-    --color-glass: rgb(24 35 46 / 0.52);
+    --color-glass: rgb(24 35 46 / 0.1);
     --color-glass-strong: rgb(24 35 46 / 0.97);
     --color-glass-edge: rgb(255 255 255 / 0.14);
     --color-glass-sheen: rgb(255 255 255 / 0.06);
@@ -618,7 +618,11 @@ main {
   color: #fff;
   background:
     radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.12), transparent 28%),
-    linear-gradient(135deg, var(--tone-a), var(--tone-b));
+    linear-gradient(
+      135deg, 
+      rgb(from var(--tone-a) r g b / 0.6), /* 60% opacity */
+      rgb(from var(--tone-b) r g b / 0.6)  /* 60% opacity */
+    );
   transition: background var(--motion-base) var(--ease);
 }
 
