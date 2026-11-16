@@ -1,6 +1,6 @@
-import mimetypes
 import hashlib
 import ipaddress
+import mimetypes
 import os
 import time
 import urllib.parse
@@ -95,13 +95,16 @@ class AppConfig:
 
     @classmethod
     def from_env(cls):
+        # os.environ.get() returns str | None, so defaults are strings and parsed
+        # in one place. (The old int/float defaults worked at runtime but broke the
+        # type signature, and ruff flags them as PLW1508.)
         def positive_int(name: str, default: int) -> int:
-            value = int(os.environ.get(name, default))
+            value = int(os.environ.get(name, str(default)))
             if value <= 0:
                 raise ValueError(f"{name} must be greater than zero")
             return value
 
-        timeout = float(os.environ.get("UPSTREAM_TIMEOUT", 5))
+        timeout = float(os.environ.get("UPSTREAM_TIMEOUT", "5"))
         if timeout <= 0:
             raise ValueError("UPSTREAM_TIMEOUT must be greater than zero")
         temperature_unit = os.environ.get("TEMPERATURE_UNIT", "fahrenheit")

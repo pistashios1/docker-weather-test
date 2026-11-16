@@ -19,16 +19,29 @@ def error_response(message: str, status_code: int, headers: dict[str, str] | Non
     return response
 
 
-def validate_location_response(data: Any) -> dict[str, Any]:
-    if not isinstance(data, dict):
-        raise InvalidUpstreamPayload("location payload is not an object")
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float))
+
+
+def _parse_coordinates(data: dict[str, Any], label: str) -> tuple[float, float]:
+    """Read and range-check data["latitude"] and data["longitude"].
+
+    `label` names the payload in the error message ("location", "weather").
+    """
     try:
         latitude = float(data["latitude"])
         longitude = float(data["longitude"])
     except (KeyError, TypeError, ValueError) as error:
-        raise InvalidUpstreamPayload("location coordinates are invalid") from error
+        raise InvalidUpstreamPayload(f"{label} coordinates are invalid") from error
     if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-        raise InvalidUpstreamPayload("location coordinates are out of range")
+        raise InvalidUpstreamPayload(f"{label} coordinates are out of range")
+    return latitude, longitude
+
+
+def validate_location_response(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise InvalidUpstreamPayload("location payload is not an object")
+    latitude, longitude = _parse_coordinates(data, "location")
     city = data.get("city")
     region = data.get("region")
     country = data.get("country_name")
@@ -102,58 +115,79 @@ def validate_reverse_location_response(data: Any) -> dict[str, str]:
     return {"name": f"{name}, {context}" if context else str(name)}
 
 
-def validate_weather_response(data: Any) -> dict[str, Any]:
-    if not isinstance(data, dict):
-        raise InvalidUpstreamPayload("weather payload is not an object")
+# Fields /weather needs from Open-Meteo's "current" block. All must be numbers.
+CURRENT_FIELDS = (
+    "temperature_2m",
+    "wind_speed_10m",
+    "weather_code",
+    "rain",
+    "relative_humidity_2m",
+    "uv_index",
+)
+
+# The hourly series are cut to this many points (two days of hourly data).
+MAX_HOURLY_POINTS = 48
+
+
+def _validate_current(data: dict[str, Any]) -> dict[str, Any]:
     current = data.get("current")
     if not isinstance(current, dict):
         raise InvalidUpstreamPayload("weather current data is missing")
-    for field in (
-        "temperature_2m",
-        "wind_speed_10m",
-        "weather_code",
-        "rain",
-        "relative_humidity_2m",
-        "uv_index",
-    ):
-        if field not in current or not isinstance(current[field], (int, float)):
+    for field in CURRENT_FIELDS:
+        if field not in current or not _is_number(current[field]):
             raise InvalidUpstreamPayload(f"weather field {field} is invalid")
+    return current
+
+
+def _require_numbers(values: list[Any], message: str) -> None:
+    if not all(_is_number(value) for value in values):
+        raise InvalidUpstreamPayload(message)
+
+
+def _validate_hourly(data: dict[str, Any]) -> dict[str, list[Any]]:
     hourly = data.get("hourly")
     if not isinstance(hourly, dict):
         raise InvalidUpstreamPayload("weather hourly data is missing")
     times = hourly.get("time")
     temperatures = hourly.get("temperature_2m")
     weather_codes = hourly.get("weather_code")
-    if not isinstance(times, list) or not isinstance(temperatures, list) or not isinstance(
-        weather_codes, list
-    ):
+    if not all(isinstance(series, list) for series in (times, temperatures, weather_codes)):
         raise InvalidUpstreamPayload("weather hourly data is invalid")
     if not times or len(times) != len(temperatures) or len(times) != len(weather_codes):
         raise InvalidUpstreamPayload("weather hourly data is incomplete")
-    if any(not isinstance(value, (int, float)) for value in temperatures):
-        raise InvalidUpstreamPayload("weather hourly temperatures are invalid")
-    if any(not isinstance(value, (int, float)) for value in weather_codes):
-        raise InvalidUpstreamPayload("weather hourly codes are invalid")
-    try:
-        latitude = float(data["latitude"])
-        longitude = float(data["longitude"])
-    except (KeyError, TypeError, ValueError) as error:
-        raise InvalidUpstreamPayload("weather coordinates are invalid") from error
-    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-        raise InvalidUpstreamPayload("weather coordinates are out of range")
+    _require_numbers(temperatures, "weather hourly temperatures are invalid")
+    _require_numbers(weather_codes, "weather hourly codes are invalid")
+    return {
+        "time": times[:MAX_HOURLY_POINTS],
+        "temperature_2m": temperatures[:MAX_HOURLY_POINTS],
+        "weather_code": weather_codes[:MAX_HOURLY_POINTS],
+    }
+
+
+def _timezone_or_utc(data: dict[str, Any]) -> str:
     timezone = data.get("timezone")
-    if not isinstance(timezone, str) or not timezone.strip():
-        timezone = "UTC"
+    if isinstance(timezone, str) and timezone.strip():
+        return timezone
+    return "UTC"
+
+
+def validate_weather_response(data: Any) -> dict[str, Any]:
+    """Check an Open-Meteo forecast and return only the fields the API serves.
+
+    The checks run in a fixed order (current, hourly, coordinates) and the first
+    failure is the one reported.
+    """
+    if not isinstance(data, dict):
+        raise InvalidUpstreamPayload("weather payload is not an object")
+    current = _validate_current(data)
+    hourly = _validate_hourly(data)
+    latitude, longitude = _parse_coordinates(data, "weather")
     return {
         "latitude": latitude,
         "longitude": longitude,
-        "timezone": timezone,
+        "timezone": _timezone_or_utc(data),
         "current": current,
-        "hourly": {
-            "time": times[:48],
-            "temperature_2m": temperatures[:48],
-            "weather_code": weather_codes[:48],
-        },
+        "hourly": hourly,
     }
 
 
