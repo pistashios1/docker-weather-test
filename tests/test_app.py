@@ -348,7 +348,7 @@ def test_index_links_dashboard_assets():
 
     assert re.search(r"/static/css/dashboard\.css\?v=[0-9a-zA-Z_-]+", page)
     assert re.search(r"/static/js/dashboard\.js\?v=[0-9a-zA-Z_-]+", page)
-    assert "data-map-marker" in page
+    assert 'id="map-track"' in page  # map-marker.js adds the markers to it
     assert "<style>" not in page
     assert "<script>" not in page
 
@@ -360,12 +360,14 @@ def test_index_links_dashboard_assets():
         ("css/map-marker.css", "text/css"),
         ("js/dashboard.js", "javascript"),
         ("js/map-marker.js", "javascript"),
+        ("js/scroll-fade.js", "javascript"),
         ("js/format.js", "javascript"),
         ("js/search-box.js", "javascript"),
         ("js/storage.js", "javascript"),
         ("img/world-map.svg", "image/svg+xml"),
         ("fonts/space-grotesk-latin-wght-normal.woff2", "font/woff2"),
         ("fonts/space-grotesk-latin-ext-wght-normal.woff2", "font/woff2"),
+        ("fonts/newsreader-latin-600-normal.woff2", "font/woff2"),
     ],
 )
 def test_dashboard_assets_are_served(path, content_type):
@@ -579,14 +581,15 @@ def test_scrollable_forecast_is_keyboard_focusable():
     assert re.search(r'id="forecast"[^>]*tabindex="0"', page)
 
 
-def test_font_preload_matches_the_url_the_stylesheet_requests():
+def test_font_preloads_match_the_urls_the_stylesheet_requests():
     page = app.test_client().get("/").get_data(as_text=True)
-    preload = re.search(r'rel="preload" href="([^"]+\.woff2)[^"]*"', page).group(1)
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+    preloads = re.findall(r'rel="preload" href="([^"]+\.woff2)[^"]*"', page)
 
-    assert "?" not in preload
-    assert f"url(\"../fonts/{preload.rsplit('/', 1)[1]}\")" in (
-        STATIC_DIR / "css" / "dashboard.css"
-    ).read_text(encoding="utf-8")
+    assert len(preloads) == 2  # body font and title font
+    for preload in preloads:
+        assert "?" not in preload
+        assert f"url(\"../fonts/{preload.rsplit('/', 1)[1]}\")" in css
 
 
 def test_footer_text_is_not_faded_below_contrast_requirements():
@@ -691,3 +694,48 @@ def test_location_falls_back_to_the_ip_provider_when_vercel_headers_are_missing_
             )
         assert result.status_code == 200
         get.assert_called_once_with("https://ipapi.co/8.8.8.8/json/", timeout=5)
+
+
+def test_title_font_is_self_hosted_and_licensed():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+
+    assert "Times New Roman" not in css
+    assert re.search(r"--font-title:\s*\"Newsreader\"", css)
+    assert (STATIC_DIR / "fonts" / "OFL-newsreader.txt").is_file()
+
+
+def test_glass_surfaces_fall_back_to_opaque_when_transparency_is_unwanted():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+
+    assert "--color-glass:" in css and "--glass-blur:" in css
+    reduced = re.search(r"@media \(prefers-reduced-transparency: reduce\) \{(.*?)\n\}", css, re.DOTALL)
+    assert reduced and "--color-glass: var(--color-surface)" in reduced.group(1)
+    assert "--glass-blur: none" in reduced.group(1)
+    assert "@supports not ((backdrop-filter: blur(1px))" in css
+
+
+def test_search_card_stays_above_the_result_card():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.search-card \{(.*?)\}", css, re.DOTALL)
+
+    # backdrop-filter gives each card its own stacking context; without a higher
+    # z-index the suggestion list would be painted under the result card.
+    assert rule and "position: relative" in rule.group(1)
+    assert re.search(r"z-index:\s*[1-9]", rule.group(1))
+
+
+def test_every_repeat_of_the_map_gets_a_marker():
+    script = (STATIC_DIR / "js" / "map-marker.js").read_text(encoding="utf-8")
+    css = (STATIC_DIR / "css" / "map-marker.css").read_text(encoding="utf-8")
+
+    assert re.search(r"MARKER_COPIES = [4-9]|MARKER_COPIES = \d{2}", script)
+    assert "--marker-index" in script and "var(--marker-index" in css
+
+
+def test_forecast_edge_fade_is_masked_and_keeps_a_visible_focus_ring():
+    css = (STATIC_DIR / "css" / "dashboard.css").read_text(encoding="utf-8")
+
+    assert 'data-fade-start="true"' in css and 'data-fade-end="true"' in css
+    assert re.search(r"\.forecast \{[^}]*mask-image: linear-gradient", css, re.DOTALL)
+    # A mask clips the strip's own outline, so the ring moves to the section.
+    assert ".forecast-section:has(.forecast:focus-visible)" in css

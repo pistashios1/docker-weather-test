@@ -17,11 +17,13 @@ const [
   { createSearchBox },
   { readStorage, writeStorage },
   { createMapMarker },
+  { watchScrollFade },
 ] = await Promise.all([
   versionedImport("./format.js"),
   versionedImport("./search-box.js"),
   versionedImport("./storage.js"),
   versionedImport("./map-marker.js"),
+  versionedImport("./scroll-fade.js"),
 ]);
 
 const $ = (selector) => document.querySelector(selector);
@@ -47,10 +49,8 @@ const unitRadios = document.querySelectorAll('input[name="units"]');
 const panel = $("#panel");
 const status = $("#status");
 const forecast = $("#forecast");
-const mapMarker = createMapMarker({
-  track: $("#map-track"),
-  markers: document.querySelectorAll("[data-map-marker]"),
-});
+const mapMarker = createMapMarker({ track: $("#map-track") });
+watchScrollFade(forecast);
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const FORECAST_SCROLL_FACTOR = 0.85;
