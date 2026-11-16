@@ -1,12 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers.mjs";
 
+// map-marker.js builds one .map-marker per repeat of the world map, each offset
+// by --marker-index tiles. Always measure copy 0 so the check follows a single
+// marker instead of whichever copy happens to come first.
+const VISIBLE_MARKER = ".map-marker:not([hidden])";
+
 // Layout-space position (immune to the map's scroll animation) as a fraction
 // of one map tile, plus the tile height. Only a viewport-dependent layout can
 // make these change when the window is resized.
 const markerFraction = (page) => page.evaluate(() => {
   const track = document.querySelector("#map-track");
-  const marker = [...document.querySelectorAll("[data-map-marker]")].find((m) => !m.hidden);
+  const marker = [...document.querySelectorAll(".map-marker")].find(
+    (m) => !m.hidden && m.style.getPropertyValue("--marker-index") === "0",
+  );
+  if (!marker) throw new Error("no visible .map-marker with --marker-index 0");
   const tileHeight = track.offsetHeight;
   const tileWidth = (tileHeight * 360) / 142;
   return {
@@ -41,5 +49,5 @@ test("a visible marker exists on a wide screen", async ({ page }) => {
   await page.setViewportSize({ width: 2560, height: 1200 });
   await page.goto("/");
   await expect(page.locator("#location-name")).toHaveText("Sydney");
-  await expect(page.locator("[data-map-marker]:not([hidden])").first()).toBeVisible();
+  await expect(page.locator(VISIBLE_MARKER).first()).toBeVisible();
 });
