@@ -13,7 +13,7 @@ on:
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -32,7 +32,6 @@ jobs:
       # This is used to complete the identity challenge
       # with sigstore/fulcio when running outside of PRs.
       id-token: write
-      actions: write
 
     steps:
       - name: Checkout repository
@@ -81,7 +80,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only export the cache from trusted runs. Dependabot- and fork-triggered
+          # pull_request runs get a read-only token and fail with
+          # "failed to reserve cache: cache write denied: token has no writable scopes".
+          # They can still read the cache via cache-from.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
