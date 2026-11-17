@@ -5,18 +5,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN useradd --create-home --uid 10001 app
 
-COPY --chown=app:app app app
-COPY --chown=app:app public public
-
 WORKDIR /app
 
+# Install dependencies first (as root) so this layer is cached
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-USER app
+COPY --chown=app:app app app
+COPY --chown=app:app public public
 
-COPY app app
-COPY public public
+USER app
 
 EXPOSE 5000
 
