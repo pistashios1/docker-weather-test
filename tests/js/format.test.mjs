@@ -35,6 +35,13 @@ test("API local times are shown as written, not shifted by the viewer's zone", (
   assert.equal(formatClock(Number.NaN), "--");
 });
 
+test("Unix API timestamps are converted with the selected timezone", () => {
+  const utcTimestamp = 1763215200;
+  assert.match(formatHour(utcTimestamp, "UTC"), /2/);
+  assert.match(formatHour(utcTimestamp, "America/New_York"), /9/);
+  assert.match(formatClock(utcTimestamp, "UTC"), /2:00/);
+});
+
 test("formatClock honours an explicit time zone for dates", () => {
   const noonUtc = new Date("2026-11-15T12:00:00Z");
   assert.match(formatClock(noonUtc, "UTC"), /12:00/);

@@ -23,6 +23,7 @@ from app.api_contracts import (
 from app.weather_app import app
 
 CURRENT_FIELDS = (
+    "time",
     "temperature_2m",
     "wind_speed_10m",
     "weather_code",
@@ -38,7 +39,7 @@ def _weather(**overrides):
         "longitude": -74.006,
         "timezone": "America/New_York",
         "current": {
-            "time": "2026-11-14T03:00",
+            "time": 1794625200,
             "temperature_2m": 37.4,
             "wind_speed_10m": 8.2,
             "weather_code": 3,
@@ -47,7 +48,7 @@ def _weather(**overrides):
             "uv_index": 0.0,
         },
         "hourly": {
-            "time": ["2026-11-14T03:00", "2026-11-14T04:00", "2026-11-14T05:00"],
+            "time": [1794625200, 1794628800, 1794632400],
             "temperature_2m": [37.4, 36.8, 36.1],
             "weather_code": [3, 3, 2],
         },
@@ -84,7 +85,7 @@ def test_weather_accepts_a_complete_payload_and_returns_only_the_known_fields():
 def test_weather_keeps_every_current_field_including_ones_it_does_not_check():
     result = validate_weather_response(_weather())
 
-    assert result["current"]["time"] == "2026-11-14T03:00"
+    assert result["current"]["time"] == 1794625200
     assert result["current"]["temperature_2m"] == 37.4
 
 
@@ -169,6 +170,13 @@ def test_weather_rejects_a_non_numeric_hourly_temperature():
     _rejects(payload, "weather hourly temperatures are invalid")
 
 
+def test_weather_rejects_a_non_numeric_hourly_timestamp():
+    payload = _weather()
+    payload["hourly"]["time"][1] = "2026-11-14T04:00"
+
+    _rejects(payload, "weather hourly timestamps are invalid")
+
+
 def test_weather_rejects_a_non_numeric_hourly_weather_code():
     payload = _weather()
     payload["hourly"]["weather_code"][2] = None
@@ -238,7 +246,7 @@ def test_weather_keeps_at_most_48_hourly_points():
     count = 60
     payload = _weather(
         hourly={
-            "time": [f"t{i}" for i in range(count)],
+            "time": [1794625200 + i * 3600 for i in range(count)],
             "temperature_2m": list(range(count)),
             "weather_code": [0] * count,
         }
@@ -247,7 +255,7 @@ def test_weather_keeps_at_most_48_hourly_points():
     hourly = validate_weather_response(payload)["hourly"]
 
     assert len(hourly["time"]) == len(hourly["temperature_2m"]) == len(hourly["weather_code"]) == 48
-    assert hourly["time"][-1] == "t47"
+    assert hourly["time"][-1] == 1794625200 + 47 * 3600
     assert hourly["temperature_2m"][-1] == 47
 
 

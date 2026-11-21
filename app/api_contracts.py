@@ -220,6 +220,7 @@ def validate_reverse_location_response(data: Any) -> dict[str, str]:
 
 # Fields /weather needs from Open-Meteo's "current" block. All must be numbers.
 CURRENT_FIELDS = (
+    "time",
     "temperature_2m",
     "wind_speed_10m",
     "weather_code",
@@ -299,6 +300,7 @@ def _validate_hourly(data: dict[str, Any]) -> dict[str, list[Any]]:
         raise InvalidUpstreamPayload("weather hourly data is invalid")
     if not times or len(times) != len(temperatures) or len(times) != len(weather_codes):
         raise InvalidUpstreamPayload("weather hourly data is incomplete")
+    _require_numbers(times, "weather hourly timestamps are invalid")
     _require_numbers(temperatures, "weather hourly temperatures are invalid")
     _require_numbers(weather_codes, "weather hourly codes are invalid")
     return {

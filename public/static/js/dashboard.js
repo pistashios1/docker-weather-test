@@ -77,6 +77,7 @@ let selectedLocation = null;
 let activeRequest = null; // AbortController of the in-flight weather request
 let busy = false;
 let locationAttempt = 0; // Bumped whenever a newer location choice supersedes a pending one
+let localTimeTimer = null;
 
 /* ---------- Units ---------- */
 
@@ -133,6 +134,7 @@ const toSentence = (text) => {
 
 const showError = (text) => {
   // The error block has role="alert", so it is announced when it appears.
+  stopLocalTimeClock();
   $("#error-message").textContent = toSentence(text) || "Unable to load weather.";
   setState("error");
 };
@@ -160,14 +162,20 @@ const renderForecast = () => {
   }
 
   const metric = isMetric();
-  const rawCurrentTime = typeof lastData.current?.time === "string" ? lastData.current.time : "";
-  const currentTime = rawCurrentTime.length >= 13 ? `${rawCurrentTime.slice(0, 13)}:00` : "";
-  const currentIndex = currentTime
+  const rawCurrentTime = ["number", "string"].includes(typeof lastData.current?.time)
+    ? lastData.current.time
+    : "";
+  const currentIndex = typeof rawCurrentTime === "number"
     ? Math.max(
         0,
-        hourly.time.findIndex((time) => time >= currentTime)
+        hourly.time.findIndex((time) => Number(time) >= rawCurrentTime)
       )
-    : 0;
+    : rawCurrentTime.length >= 13
+      ? Math.max(
+          0,
+          hourly.time.findIndex((time) => String(time) >= `${rawCurrentTime.slice(0, 13)}:00`)
+        )
+      : 0;
   const times = hourly.time.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
   const temperatures = hourly.temperature_2m.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
   const weatherCodes = hourly.weather_code.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
@@ -191,7 +199,7 @@ const renderForecast = () => {
       const card = document.createElement("div");
       card.className = "forecast-card";
       const parts = [
-        ["forecast-time", index === 0 ? time : formatHour(time)],
+        ["forecast-time", index === 0 ? time : formatHour(time, lastData.timezone)],
         ["forecast-symbol", condition.icon],
         ["forecast-temperature", `${numberFormat(0).format(temperature)}°`],
         ["forecast-condition", condition.label],
@@ -219,8 +227,7 @@ const render = () => {
 
   $("#location-name").textContent = selectedLocation.name;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
-  $("#local-time").textContent = formatClock(new Date(), lastData.timezone);
-  $("#utc-offset").textContent = formatUtcOffset(lastData.timezone);
+  updateLocalTime();
   $("#condition").textContent = `${condition.icon} ${condition.label}`;
   $("#temperature").textContent = numberFormat(0).format(temperature);
   $("#temperature-unit").textContent = metric ? "°C" : "°F";
@@ -233,6 +240,26 @@ const render = () => {
   panel.dataset.tone = toneForFahrenheit(current.temperature_2m);
   panel.dataset.condition = condition.key;
   renderForecast();
+};
+
+const stopLocalTimeClock = () => {
+  if (localTimeTimer) {
+    clearInterval(localTimeTimer);
+    localTimeTimer = null;
+  }
+};
+
+const updateLocalTime = () => {
+  if (!lastData) return;
+  const now = new Date();
+  $("#local-time").textContent = formatClock(now, lastData.timezone);
+  $("#utc-offset").textContent = formatUtcOffset(lastData.timezone, now);
+};
+
+const startLocalTimeClock = () => {
+  stopLocalTimeClock();
+  updateLocalTime();
+  localTimeTimer = setInterval(updateLocalTime, 1000);
 };
 
 /* ---------- Network ---------- */
@@ -283,6 +310,7 @@ const loadWeather = async () => {
 
   setBusy(true);
   setState("loading");
+  stopLocalTimeClock();
   mapMarker.clear();
   announce("Loading weather…");
 
@@ -300,6 +328,7 @@ const loadWeather = async () => {
     render();
     mapMarker.setCoordinates(data.latitude, data.longitude);
     setState("ready");
+    startLocalTimeClock();
     revealResult();
     announce(
       `Weather loaded for ${selectedLocation.name}: ${$("#temperature").textContent}` +
@@ -427,6 +456,7 @@ const useCachedUserLocation = () => {
   if (sameLocation(selectedLocation, location) && lastData) {
     setBusy(false);
     setState("ready");
+    startLocalTimeClock();
     announce(`Showing weather for ${location.name}.`);
     return true;
   }
