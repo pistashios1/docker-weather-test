@@ -1,7 +1,7 @@
 # Weather Lookup
 
-An easy-to-use weather dashboard for checking current conditions and the next
-twelve hours for any city or your current location.
+A Flask-based weather dashboard application that displays current conditions
+and hourly forecasts from Open-Meteo API for any city or your current location.
 
 **Live demo: <https://docker-weather-test.vercel.app/>**
 
@@ -56,6 +56,7 @@ macOS or Linux:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 python -m app.weather_app
 ```
@@ -65,6 +66,7 @@ Windows (PowerShell):
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
 pip install -r requirements.txt
 python -m app.weather_app
 ```
