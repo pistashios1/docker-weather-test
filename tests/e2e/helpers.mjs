@@ -5,11 +5,12 @@ const HOURS = Array.from({ length: 48 }, (_, i) =>
 export const weatherPayload = (latitude, longitude) => ({
   latitude, longitude, timezone: "UTC", source: "Open-Meteo",
   current: {
+    time: 1794625200,
     temperature_2m: 61, wind_speed_10m: 7, weather_code: 2,
     rain: 0, relative_humidity_2m: 55, uv_index: 3,
   },
   hourly: {
-    time: HOURS,
+    time: HOURS.map((_, index) => 1794625200 + index * 3600),
     temperature_2m: HOURS.map(() => 60),
     weather_code: HOURS.map(() => 2),
   },

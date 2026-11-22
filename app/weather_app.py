@@ -548,6 +548,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
                     "hourly": "temperature_2m,weather_code",
                     "forecast_days": 2,
                     "timezone": "auto",
+                    "timeformat": "unixtime",
                     "temperature_unit": config.temperature_unit,
                     "wind_speed_unit": config.wind_speed_unit,
                 },

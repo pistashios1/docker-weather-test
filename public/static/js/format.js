@@ -62,6 +62,12 @@ const parseApiLocalTime = (isoTime) => {
 };
 
 const formatApiTime = (isoTime, options) => {
+  if (typeof isoTime === "number") {
+    const date = new Date(isoTime < 1e12 ? isoTime * 1000 : isoTime);
+    return Number.isNaN(date.valueOf())
+      ? "--"
+      : date.toLocaleTimeString(undefined, options);
+  }
   const localTime = parseApiLocalTime(isoTime);
   if (localTime) return localTime.toLocaleTimeString(undefined, { ...options, timeZone: "UTC" });
   const date = new Date(isoTime);
@@ -70,14 +76,17 @@ const formatApiTime = (isoTime, options) => {
     : date.toLocaleTimeString(undefined, options);
 };
 
-// Open-Meteo timestamps are local to the requested location and have no offset.
-export const formatHour = (isoTime) => formatApiTime(isoTime, { hour: "numeric" });
+// Unix timestamps are UTC; legacy ISO timestamps are local with no offset.
+export const formatHour = (isoTime, timeZone) =>
+  formatApiTime(isoTime, { hour: "numeric", ...(timeZone ? { timeZone } : {}) });
 
 export const formatClock = (value, timeZone) => {
   if (typeof value === "string") {
     return formatApiTime(value, { hour: "numeric", minute: "2-digit" });
   }
-  const date = value instanceof Date ? value : new Date(value);
+  const date = value instanceof Date
+    ? value
+    : new Date(typeof value === "number" && value < 1e12 ? value * 1000 : value);
   return Number.isNaN(date.valueOf())
     ? "--"
     : date.toLocaleTimeString(undefined, {

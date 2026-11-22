@@ -42,3 +42,18 @@ test("no geolocation API at all: still falls back to New York", async ({ page })
   await page.goto("/");
   await expect(page.locator("#location-name")).toHaveText("New York");
 });
+
+test("local time ticks in the browser without another weather request", async ({ page }) => {
+  await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+  let weatherRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/weather?")) weatherRequests += 1;
+  });
+
+  await page.goto("/");
+  await expect(page.locator("#local-time")).not.toHaveText("--");
+  await page.waitForTimeout(2500);
+
+  expect(weatherRequests).toBe(1);
+  await expect(page.locator("#utc-offset")).not.toHaveText("UTC --");
+});

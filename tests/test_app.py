@@ -213,6 +213,7 @@ def test_weather_returns_current_conditions():
         "longitude": -74.01,
         "timezone": "America/New_York",
         "current": {
+            "time": 1794625200,
             "temperature_2m": 72.5,
             "wind_speed_10m": 4.2,
             "weather_code": 1,
@@ -221,7 +222,7 @@ def test_weather_returns_current_conditions():
             "uv_index": 2.1,
         },
         "hourly": {
-            "time": ["2026-11-12T00:00"],
+            "time": [1794625200],
             "temperature_2m": [70.0],
             "weather_code": [1],
         },
@@ -235,6 +236,9 @@ def test_weather_returns_current_conditions():
     assert result.get_json()["current"]["rain"] == 0.4
     assert result.get_json()["timezone"] == "America/New_York"
     get.assert_called_once()
+    upstream_params = get.call_args.kwargs["params"]
+    assert upstream_params["timezone"] == "auto"
+    assert upstream_params["timeformat"] == "unixtime"
 
 
 def test_weather_rejects_out_of_range_coordinates():
@@ -306,6 +310,7 @@ def test_weather_uses_cache():
         "latitude": 40.71,
         "longitude": -74.01,
         "current": {
+            "time": 1794625200,
             "temperature_2m": 72.5,
             "wind_speed_10m": 4.2,
             "weather_code": 1,
@@ -314,7 +319,7 @@ def test_weather_uses_cache():
             "uv_index": 2.1,
         },
         "hourly": {
-            "time": ["2026-11-12T00:00"],
+            "time": [1794625200],
             "temperature_2m": [70.0],
             "weather_code": [1],
         },
