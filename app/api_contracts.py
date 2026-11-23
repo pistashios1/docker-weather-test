@@ -51,18 +51,18 @@ def error_response(message: str, status_code: int, headers: dict[str, str] | Non
 
 
 def _is_number(value: Any) -> bool:
-    """Check if a value is a numeric type.
+    """Check if a value is a JSON number.
 
-    Accepts int and float values, including numeric strings that can be converted
-    to floats (for JSON input).
+    Accepts int and float values. Strings and booleans (which Python counts as
+    ints) are rejected.
 
     Args:
         value: The value to check.
 
     Returns:
-        bool: True if the value is an int or float, False otherwise.
+        bool: True if the value is an int or float but not a bool, False otherwise.
     """
-    return isinstance(value, (int, float))
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _parse_coordinates(data: dict[str, Any], label: str) -> tuple[float, float]:
@@ -259,14 +259,14 @@ def _validate_current(data: dict[str, Any]) -> dict[str, Any]:
 def _require_numbers(values: list[Any], message: str) -> None:
     """Ensure all values in a list are numeric.
 
-    Performs type checking and range validation for a list of values.
+    Checks types only; there is no range check.
 
     Args:
         values: List of values to validate (e.g., hourly temperatures).
         message: Error message to raise if validation fails.
 
     Raises:
-        InvalidUpstreamPayload: If any value is not numeric or out of range.
+        InvalidUpstreamPayload: If any value is not numeric.
     """
     if not all(_is_number(value) for value in values):
         raise InvalidUpstreamPayload(message)

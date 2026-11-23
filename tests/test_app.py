@@ -15,6 +15,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "public" / "static"
 def clear_weather_cache():
     app.extensions["weather_cache"]._items.clear()
     app.extensions["search_cache"]._items.clear()
+    app.extensions["location_cache"]._items.clear()
 
 
 def test_index_serves_weather_frontend():
@@ -744,3 +745,35 @@ def test_forecast_edge_fade_is_masked_and_keeps_a_visible_focus_ring():
     assert re.search(r"\.forecast \{[^}]*mask-image: linear-gradient", css, re.DOTALL)
     # A mask clips the strip's own outline, so the ring moves to the section.
     assert ".forecast-section:has(.forecast:focus-visible)" in css
+
+
+def test_search_reuses_the_provider_answer_for_other_visitors():
+    response = Mock()
+    response.json.return_value = {
+        "results": [
+            {"name": "Paris", "latitude": 48.86, "longitude": 2.35, "country": "France"},
+            {"name": "Paris", "latitude": 33.66, "longitude": -95.56, "country": "United States"},
+        ]
+    }
+
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
+        client = app.test_client()
+        near_france = client.get("/search?q=Paris&latitude=48.8&longitude=2.3").get_json()
+        near_texas = client.get("/search?q=paris&latitude=33.6&longitude=-95.5").get_json()
+
+    get.assert_called_once()
+    assert near_france["results"][0]["context"] == "France"
+    assert near_texas["results"][0]["context"] == "United States"
+
+
+def test_reverse_location_is_cached_for_nearby_coordinates():
+    response = Mock()
+    response.json.return_value = {"address": {"city": "Paris", "country": "France"}}
+
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
+        client = app.test_client()
+        first = client.get("/reverse-location?latitude=48.85661&longitude=2.35222")
+        second = client.get("/reverse-location?latitude=48.85664&longitude=2.35218")
+
+    get.assert_called_once()
+    assert first.get_json() == second.get_json() == {"name": "Paris, France"}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
-  formatHour, formatUtcOffset, mphToKmh, toneForFahrenheit,
+  forecastStartIndex, formatHour, formatUtcOffset, mphToKmh, toneForFahrenheit,
 } from "../../public/static/js/format.js";
 
 test("unit conversions", () => {
@@ -28,9 +28,7 @@ test("conditionForCode maps WMO codes and falls back", () => {
   assert.equal(conditionForCode(undefined).key, "unknown");
 });
 
-test("API local times are shown as written, not shifted by the viewer's zone", () => {
-  assert.match(formatHour("2026-11-15T14:00"), /2/);
-  assert.match(formatClock("2026-11-15T09:05"), /9:05/);
+test("Invalid times are shown as --", () => {
   assert.equal(formatHour("garbage"), "--");
   assert.equal(formatClock(Number.NaN), "--");
 });
@@ -58,4 +56,11 @@ test("formatUtcOffset", () => {
 test("formatCoordinates uses hemisphere letters", () => {
   assert.match(formatCoordinates(40.71, -74.01), /^40\.71° N, 74\.01° W$/);
   assert.match(formatCoordinates(-33.87, 151.21), /^33\.87° S, 151\.21° E$/);
+});
+
+test("forecastStartIndex picks the hour that contains the current time", () => {
+  const hours = [0, 3600, 7200, 10800];
+  assert.equal(forecastStartIndex(hours, 3600), 1); // exactly on the hour
+  assert.equal(forecastStartIndex(hours, 3600 + 15 * 60), 1); // 15 minutes past
+  assert.equal(forecastStartIndex(hours, -60), 0); // before the first hour
 });

@@ -111,7 +111,7 @@ def test_weather_rejects_a_missing_current_field(field):
 
 
 @pytest.mark.parametrize("field", CURRENT_FIELDS)
-@pytest.mark.parametrize("value", [None, "12", [1], {"v": 1}])
+@pytest.mark.parametrize("value", [None, "12", [1], {"v": 1}, True])
 def test_weather_rejects_a_non_numeric_current_field(field, value):
     payload = _weather()
     payload["current"][field] = value
@@ -533,7 +533,7 @@ def test_weather_response_labels_the_source():
 
 CONFIG_VARS = (
     "UPSTREAM_TIMEOUT", "WEATHER_CACHE_TTL", "WEATHER_CACHE_SIZE", "RATE_LIMIT",
-    "RATE_WINDOW", "SEARCH_CACHE_TTL", "TEMPERATURE_UNIT", "WIND_SPEED_UNIT",
+    "RATE_WINDOW", "SEARCH_CACHE_TTL",
     "TRUST_VERCEL_CLIENT_IP", "VERCEL",
 )
 

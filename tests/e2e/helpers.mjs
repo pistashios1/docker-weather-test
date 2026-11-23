@@ -1,6 +1,5 @@
 // Shared fixtures: every provider call is mocked, so the suite runs offline.
-const HOURS = Array.from({ length: 48 }, (_, i) =>
-  `2026-11-15T${String(i % 24).padStart(2, "0")}:00`);
+const HOURS = Array.from({ length: 48 });
 
 export const weatherPayload = (latitude, longitude) => ({
   latitude, longitude, timezone: "UTC", source: "Open-Meteo",

@@ -112,6 +112,11 @@ successful lookup, the coordinates and resolved name are cached in this
 browser for 15 minutes as `user-location`; later uses and refreshes reuse that
 client-side location without asking again.
 
+**Returning visitors.** The last place you picked, from search or **Use my
+location**, is kept in this browser for 30 days as `last-location`. On your
+next visit the dashboard opens there and skips all three steps above. The IP
+estimate and New York are never saved, so they don't replace a place you chose.
+
 Search results are ranked using what you typed, how close each place is to the
 place you are viewing, how large it is, and the places you picked before. Your
 recent picks are stored only in your browser.
@@ -270,8 +275,6 @@ Set environment variables before starting the app. All are optional.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `PORT` | `5000` | Port for `python -m app.weather_app` only. The Docker image always listens on 5000. |
-| `TEMPERATURE_UNIT` | `fahrenheit` | `fahrenheit` or `celsius`. See the note below. |
-| `WIND_SPEED_UNIT` | `mph` | `mph`, `kmh` or `ms`. See the note below. |
 | `WEATHER_CACHE_TTL` | `30` | Seconds to cache a weather result. |
 | `WEATHER_CACHE_SIZE` | `256` | Most locations kept in the weather cache. |
 | `SEARCH_CACHE_TTL` | `300` | Seconds to cache search results. |
@@ -289,11 +292,6 @@ Static dashboard assets are served with a one-day browser cache and
 `immutable` caching. Their URLs include a version taken from the files'
 contents, so browsers fetch new assets as soon as one changes and keep reusing
 them otherwise, including across restarts and serverless cold starts.
-
-> **Keep the unit defaults if you use the dashboard.** The page expects °F and
-> mph from the API and does the metric conversion itself. If you set
-> `TEMPERATURE_UNIT=celsius` or `WIND_SPEED_UNIT=kmh`, the dashboard will show
-> wrong numbers. These settings are for people who call the API directly.
 
 Example:
 
@@ -339,9 +337,6 @@ read its log; then press **Try again**.
 **"Too many requests" (`429`).** One client sent more than `RATE_LIMIT`
 requests in `RATE_WINDOW` seconds. Wait the number of seconds shown, or raise
 the limit.
-
-**Temperatures look wrong.** Check that `TEMPERATURE_UNIT` and
-`WIND_SPEED_UNIT` are not set (see [Configuration](#configuration)).
 
 **The page is unstyled or blank.** The CSS and JavaScript load from `/static`.
 If you build your own image, make sure it copies the `public` folder (the Dockerfile does).
@@ -389,10 +384,12 @@ Frontend and browser tests (Node 20+):
 ruff check .                          # lint
 node --test "tests/js/*.test.mjs"     # unit tests for the ES modules, no dependencies
 cd tests/e2e && npm ci && npx playwright install chromium
-npx playwright test                   # resize and location-fallback tests; providers are mocked
+npx playwright test                   # resize, location and print tests; providers are mocked
 ```
 
-Set `E2E_NO_SANDBOX=1` when Chromium runs as root inside a container.
+The browser tests start the app with `.venv`'s Python when that folder exists,
+otherwise with the `python` on your PATH. Set `E2E_NO_SANDBOX=1` when Chromium
+runs as root inside a container.
 
 ### Change the background map
 
@@ -420,7 +417,7 @@ strict (`default-src 'self'`). Keep it that way: no inline `<script>` or
 
 ## Deploying
 
-The image runs Gunicorn with two workers on port 5000 and has a Docker health
+The image runs Gunicorn with two workers of four threads each on port 5000 and has a Docker health
 check on `/healthz`.
 
 ```bash
