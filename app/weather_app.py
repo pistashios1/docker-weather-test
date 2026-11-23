@@ -2,7 +2,9 @@ import hashlib
 import ipaddress
 import mimetypes
 import os
+import re
 import time
+import unicodedata
 import urllib.parse
 import uuid
 from collections import OrderedDict
@@ -19,6 +21,8 @@ from urllib3.util.retry import Retry
 
 if __package__:
     from .api_contracts import (
+        DAILY_FIELDS,
+        MAX_SEARCH_RESULTS,
         InvalidUpstreamPayload,
         error_response,
         health_response,
@@ -30,6 +34,8 @@ if __package__:
     )
 else:
     from api_contracts import (
+        DAILY_FIELDS,
+        MAX_SEARCH_RESULTS,
         InvalidUpstreamPayload,
         error_response,
         health_response,
@@ -225,9 +231,15 @@ SEARCH_WEIGHTS = {
 }
 
 
+def _fold(text: str) -> str:
+    """Case- and accent-insensitive form, so "sao paulo" matches "São Paulo"."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
 def _relevance_score(name: str, query: str) -> float:
-    normalized_name = name.casefold()
-    normalized_query = query.casefold()
+    normalized_name = _fold(name)
+    normalized_query = _fold(query)
     if normalized_name == normalized_query:
         return 1.0
     if normalized_name.startswith(normalized_query):
@@ -252,13 +264,11 @@ def _popularity_score(population: float, maximum_population: float) -> float:
 def _search_score(
     result: dict[str, Any],
     query: str,
-    latitude: float,
-    longitude: float,
+    distance: float,
     maximum_population: float,
     affinity: set[str],
 ) -> float:
-    distance = _distance_km(latitude, longitude, result["latitude"], result["longitude"])
-    affinity_score = 1.0 if result["name"].casefold() in affinity else 0.0
+    affinity_score = 1.0 if _fold(result["name"]) in affinity else 0.0
     return (
         SEARCH_WEIGHTS["relevance"] * _relevance_score(result["name"], query)
         + SEARCH_WEIGHTS["proximity"] * _proximity_score(distance)
@@ -266,6 +276,52 @@ def _search_score(
         * _popularity_score(result["population"], maximum_population)
         + SEARCH_WEIGHTS["affinity"] * affinity_score
     )
+
+
+def _matches_qualifier(result: dict[str, Any], qualifier: str) -> bool:
+    """True when a part after a comma ("Paris, Texas", "Paris, FR") names the
+    place's region or country: its two-letter country code, or the start of a
+    word there ("tex" matches Texas, but "us" does not match Russia)."""
+    if qualifier == _fold(result["country_code"]):
+        return True
+    return re.search(rf"(?:^|[\s,]){re.escape(qualifier)}", _fold(result["context"])) is not None
+
+
+def _rank_search_results(
+    results: list[dict[str, Any]],
+    query: str,
+    qualifiers: list[str],
+    latitude: float,
+    longitude: float,
+    affinity: set[str],
+) -> list[dict[str, Any]]:
+    """Best matches first, with duplicates removed and a distance on each.
+
+    Qualifiers narrow the list to the places that match all of them, unless none do
+    (then they are ignored rather than returning nothing). Places with the same name
+    and region are kept once. The cached input is never modified.
+    """
+    if qualifiers:
+        results = [
+            r for r in results if all(_matches_qualifier(r, q) for q in qualifiers)
+        ] or results
+    maximum_population = max((r["population"] for r in results), default=0)
+    scored = []
+    for result in results:
+        distance = _distance_km(latitude, longitude, result["latitude"], result["longitude"])
+        score = _search_score(result, query, distance, maximum_population, affinity)
+        scored.append((score, distance, result))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    ranked, seen = [], set()
+    for _, distance, result in scored:
+        key = (_fold(result["name"]), _fold(result["context"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        ranked.append({**result, "distance_km": round(distance)})
+        if len(ranked) == MAX_SEARCH_RESULTS:
+            break
+    return ranked
 
 
 def _asset_version(static_dir: Path) -> str:
@@ -426,13 +482,17 @@ def create_app(config: AppConfig | None = None) -> Flask:
 
     @app.get("/search")
     def search():
-        query = request.args.get("q", "").strip()
+        # "Springfield, Illinois, US": the name goes to the provider; each part
+        # after a comma narrows the results.
+        query, *rest = request.args.get("q", "").split(",")
+        query = query.strip()
+        qualifiers = [_fold(part.strip()) for part in rest if part.strip()]
         if len(query) < 2:
             return error_response("search query must contain at least 2 characters", 400)
         latitude = request.args.get("latitude", type=float)
         longitude = request.args.get("longitude", type=float)
         affinity = {
-            value.strip().casefold()
+            _fold(value.strip())
             for value in request.args.get("affinity", "").split(",")[:10]
             if value.strip()
         }
@@ -443,8 +503,8 @@ def create_app(config: AppConfig | None = None) -> Flask:
         assert latitude is not None and longitude is not None
         if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
             return error_response("search coordinates are invalid", 400)
-        # The provider's answer depends only on the query; ranking is per visitor.
-        cache_key = (query.casefold(),)
+        # The provider's answer depends only on the name; ranking is per visitor.
+        cache_key = (_fold(query),)
         results = search_cache.get(cache_key, config.search_cache_ttl)
         if results is None:
             try:
@@ -459,23 +519,8 @@ def create_app(config: AppConfig | None = None) -> Flask:
                 app.logger.exception("Location search request failed")
                 return error_response("location search unavailable", 502)
             search_cache.set(cache_key, results)
-        maximum_population = max(
-            (result["population"] for result in results),
-            default=0,
-        )
-        ordered = sorted(
-            results,
-            key=lambda result: _search_score(
-                result,
-                query,
-                latitude,
-                longitude,
-                maximum_population,
-                affinity,
-            ),
-            reverse=True,
-        )
-        return jsonify({"results": ordered})
+        ranked = _rank_search_results(results, query, qualifiers, latitude, longitude, affinity)
+        return jsonify({"results": ranked})
 
     @app.get("/reverse-location")
     def reverse_location():
@@ -533,10 +578,12 @@ def create_app(config: AppConfig | None = None) -> Flask:
                     "latitude": latitude,
                     "longitude": longitude,
                     "current": (
-                        "temperature_2m,wind_speed_10m,weather_code,rain,"
-                        "relative_humidity_2m,uv_index"
+                        "temperature_2m,apparent_temperature,wind_speed_10m,"
+                        "wind_direction_10m,weather_code,precipitation,rain,snowfall,"
+                        "relative_humidity_2m,dew_point_2m,pressure_msl,visibility,is_day,uv_index"
                     ),
                     "hourly": "temperature_2m,weather_code",
+                    "daily": ",".join(DAILY_FIELDS),
                     "forecast_days": 2,
                     "timezone": "auto",
                     "timeformat": "unixtime",

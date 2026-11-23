@@ -45,9 +45,12 @@
         <div class="search-row">
           <label class="visually-hidden" for="location-search">Search for a city or region</label>
           <input class="search-input" id="location-search" name="location"
-                 type="search" autocomplete="off" placeholder="Search for a city…"
+                 type="search" autocomplete="off" autocapitalize="off" autocorrect="off"
+                 spellcheck="false" enterkeyhint="search" placeholder="Search for a city…"
                  role="combobox" aria-haspopup="listbox" aria-autocomplete="list"
-                 aria-controls="search-results" aria-expanded="false">
+                 aria-controls="search-results" aria-expanded="false"
+                 aria-describedby="search-hint">
+          <span class="visually-hidden" id="search-hint">Add a region or country after a comma to narrow the results, for example Paris, Texas.</span>
           <button class="btn" id="search-button" type="submit">Search</button>
           <button class="link-button" id="location-button" type="button">Use my location</button>
         </div>
@@ -104,17 +107,43 @@
               <span class="visually-hidden">Temperature </span>
               <span id="temperature">--</span><span class="unit" id="temperature-unit"></span>
             </p>
+            <p class="hero-sub">
+              Feels like <span id="feels-like">--</span>
+              · High <span id="temp-high">--</span> · Low <span id="temp-low">--</span>
+            </p>
           </div>
           <p class="hero-wind">
             <span class="hero-wind-label">Wind</span>
             <span class="hero-wind-value"><span id="wind">--</span> <span id="wind-unit"></span></span>
+            <span class="hero-wind-direction">
+              <span class="wind-arrow" id="wind-arrow" aria-hidden="true">↑</span>
+              <span id="wind-direction">--</span>
+            </span>
           </p>
         </div>
 
         <dl class="details">
-          <div><dt>Precipitation</dt><dd><span id="precipitation">--</span> mm</dd></div>
-          <div><dt>Humidity</dt><dd><span id="humidity">--</span>%</dd></div>
-          <div><dt>UV index</dt><dd id="uv-index">--</dd></div>
+          <div>
+            <dt>Precipitation</dt>
+            <dd id="precip-chance">--</dd>
+            <dd class="detail-sub" id="precip-total">--</dd>
+            <dd class="detail-sub" id="rain-now" hidden></dd>
+          </div>
+          <div id="snow-row" hidden><dt>Snowfall</dt><dd id="snowfall">--</dd></div>
+          <div><dt>Humidity</dt><dd id="humidity">--</dd></div>
+          <div><dt>Dew point</dt><dd id="dew-point">--</dd></div>
+          <div><dt>Pressure</dt><dd id="pressure">--</dd></div>
+          <div><dt>Visibility</dt><dd id="visibility">--</dd></div>
+          <div>
+            <dt>UV index</dt>
+            <dd id="uv-index">--</dd>
+            <dd class="detail-sub" id="uv-level">Now / today's max</dd>
+          </div>
+          <div>
+            <dt>Sunrise and sunset</dt>
+            <dd id="sunrise">--</dd>
+            <dd class="detail-sub" id="sunset">--</dd>
+          </div>
         </dl>
 
         <div class="forecast-section">

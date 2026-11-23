@@ -29,7 +29,6 @@ CURRENT_FIELDS = (
     "weather_code",
     "rain",
     "relative_humidity_2m",
-    "uv_index",
 )
 
 
@@ -74,7 +73,8 @@ def test_weather_accepts_a_complete_payload_and_returns_only_the_known_fields():
 
     result = validate_weather_response(payload)
 
-    assert set(result) == {"latitude", "longitude", "timezone", "current", "hourly"}
+    assert set(result) == {"latitude", "longitude", "timezone", "current", "hourly", "daily"}
+    assert result["daily"] is None  # optional; this payload has none
     assert result["latitude"] == 40.7128
     assert result["longitude"] == -74.006
     assert result["timezone"] == "America/New_York"
@@ -389,6 +389,7 @@ def test_search_returns_normalized_places():
         "latitude": 48.85,
         "longitude": 2.35,
         "population": 2000000.0,
+        "country_code": "",
     }
 
 
@@ -445,13 +446,16 @@ def test_search_keeps_a_place_with_zero_population():
     assert validate_search_response({"results": [_place(population=0)]})[0]["population"] == 0.0
 
 
-def test_search_keeps_at_most_ten_entries_before_filtering():
-    # The limit applies to the upstream list, so skipped entries still count against it.
-    entries = [{"nope": True}] * 5 + [_place(name=f"City {i}") for i in range(10)]
+def test_search_keeps_every_valid_entry_for_the_caller_to_rank():
+    # /search ranks all upstream matches before trimming, so nothing is cut here.
+    entries = [{"nope": True}] * 5 + [
+        _place(name=f"City {i}", country_code=" fr ") for i in range(15)
+    ]
 
     results = validate_search_response({"results": entries})
 
-    assert [r["name"] for r in results] == [f"City {i}" for i in range(5)]
+    assert [r["name"] for r in results] == [f"City {i}" for i in range(15)]
+    assert results[0]["country_code"] == "FR"
 
 
 # ---------------------------------------------------------------------------
@@ -583,3 +587,78 @@ def test_config_rejects_text_where_a_number_is_expected(clean_env, name):
 
     with pytest.raises(ValueError):
         AppConfig.from_env()
+
+
+# ---------------------------------------------------------------------------
+# Optional current details and daily summaries
+# ---------------------------------------------------------------------------
+
+DAILY = {
+    "time": [1794603600, 1794690000, 1794776400],
+    "temperature_2m_max": [41.2, 44.0, 45.1],
+    "temperature_2m_min": [30.1, 33.5, 35.0],
+    "sunrise": [1794628800, 1794715260, 1794801720],
+    "sunset": [1794664200, 1794750540, 1794836880],
+    "uv_index_max": [2.5, None, 3.0],
+    "precipitation_sum": [1.2, 0.0, 0.0],
+    "precipitation_probability_max": [40, 10, 5],
+    "snowfall_sum": [0.0, 0.0, 0.0],
+}
+
+
+def test_weather_keeps_optional_current_details_and_allows_null():
+    payload = _weather()
+    payload["current"].update(apparent_temperature=31.0, visibility=None, is_day=1)
+
+    current = validate_weather_response(payload)["current"]
+
+    assert current["apparent_temperature"] == 31.0
+    assert current["visibility"] is None
+    assert current["is_day"] == 1
+
+
+@pytest.mark.parametrize("value", ["12", [1], True])
+def test_weather_rejects_an_optional_current_detail_that_is_not_a_number(value):
+    payload = _weather()
+    payload["current"]["pressure_msl"] = value
+    _rejects(payload, "weather field pressure_msl is invalid")
+
+
+def test_weather_daily_is_trimmed_to_two_days_and_keeps_nulls():
+    daily = validate_weather_response(_weather(daily=copy.deepcopy(DAILY)))["daily"]
+
+    assert daily["time"] == DAILY["time"][:2]
+    assert daily["uv_index_max"] == [2.5, None]
+    assert daily["precipitation_probability_max"] == [40, 10]
+
+
+def test_weather_daily_drops_unknown_series_and_allows_missing_ones():
+    daily = {"time": DAILY["time"], "sunrise": DAILY["sunrise"], "unknown": [1, 2, 3]}
+
+    result = validate_weather_response(_weather(daily=daily))["daily"]
+
+    assert set(result) == {"time", "sunrise"}
+
+
+@pytest.mark.parametrize("daily", [[], "today", {"time": []}, {"time": "x"}])
+def test_weather_rejects_a_malformed_daily_block(daily):
+    _rejects(_weather(daily=daily), "weather daily data is invalid")
+
+
+def test_weather_rejects_a_daily_series_of_the_wrong_length_or_type():
+    _rejects(
+        _weather(daily={**DAILY, "sunrise": DAILY["sunrise"][:2]}),
+        "weather daily sunrise is invalid",
+    )
+    _rejects(
+        _weather(daily={**DAILY, "sunset": ["6pm", None, None]}),
+        "weather daily sunset is invalid",
+    )
+
+
+def test_weather_keeps_the_current_uv_index_and_allows_null():
+    payload = _weather()
+    payload["current"]["uv_index"] = 3.1
+    assert validate_weather_response(payload)["current"]["uv_index"] == 3.1
+    payload["current"]["uv_index"] = None
+    assert validate_weather_response(payload)["current"]["uv_index"] is None

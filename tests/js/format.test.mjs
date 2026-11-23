@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
-  forecastStartIndex, formatHour, formatUtcOffset, mphToKmh, toneForFahrenheit,
+  compassPoint, forecastStartIndex, formatHour, formatUtcOffset, hpaToInHg,
+  metresToDistance, mphToKmh, toneForFahrenheit, uvCategory,
 } from "../../public/static/js/format.js";
 
 test("unit conversions", () => {
@@ -63,4 +64,27 @@ test("forecastStartIndex picks the hour that contains the current time", () => {
   assert.equal(forecastStartIndex(hours, 3600), 1); // exactly on the hour
   assert.equal(forecastStartIndex(hours, 3600 + 15 * 60), 1); // 15 minutes past
   assert.equal(forecastStartIndex(hours, -60), 0); // before the first hour
+});
+
+test("compassPoint names the 16 wind directions and wraps around", () => {
+  assert.equal(compassPoint(0), "N");
+  assert.equal(compassPoint(11), "N");
+  assert.equal(compassPoint(12), "NNE");
+  assert.equal(compassPoint(225), "SW");
+  assert.equal(compassPoint(350), "N");
+  assert.equal(compassPoint(360), "N");
+  assert.equal(compassPoint(-90), "W");
+});
+
+test("pressure and visibility conversions", () => {
+  assert.ok(Math.abs(hpaToInHg(1013.25) - 29.92) < 0.01);
+  assert.equal(metresToDistance(24000, true), 24);
+  assert.ok(Math.abs(metresToDistance(1609.344, false) - 1) < 1e-9);
+});
+
+test("uvCategory follows the WHO bands, which use whole numbers", () => {
+  assert.deepEqual(
+    [0, 2.4, 2.6, 5.4, 5.6, 7.4, 7.6, 10.4, 10.6].map(uvCategory),
+    ["Low", "Low", "Moderate", "Moderate", "High", "High", "Very high", "Very high", "Extreme"],
+  );
 });

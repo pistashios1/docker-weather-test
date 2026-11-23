@@ -6,14 +6,20 @@ and hourly forecasts from Open-Meteo API for any city or your current location.
 **Live demo: <https://docker-weather-test.vercel.app/>**
 
 - Starts with an approximate location from your IP address, so there is no
-  permission prompt unless it is needed, or search for any city.
-- See temperature, wind, precipitation, humidity, UV index, and an hourly
-  forecast.
+  permission prompt unless it is needed, or search for any city. Returning
+  visitors land on the last place they picked.
+- See the temperature with feels-like and today's high and low, wind speed and
+  direction, chance of rain and precipitation, snowfall when it applies,
+  humidity, dew point, pressure, visibility, today's peak UV, sunrise and
+  sunset, and a twelve-hour forecast.
+- The banner follows the time of day at that place, with a night look after
+  sunset.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
+- Prints cleanly on one page (Ctrl+P / Cmd+P).
 - Runs locally with Python or Docker. No account or API key is required.
 
-![Weather Lookup dashboard showing current New York conditions, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
-*The dashboard (New York shown).*
+![Weather Lookup dashboard at night for New York: the hero banner with temperature, feels-like, high and low, and wind direction, a grid of weather details, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
+*The dashboard (New York at night, dark mode).*
 
 ## Try it in two minutes
 
@@ -91,9 +97,11 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | You want to | Do this |
 | --- | --- |
 | See the weather where you are | The page starts with an approximate spot based on your network. For a precise one, click **Use my location** next to the search box and allow the browser's prompt. |
-| See the weather somewhere else | Type a city in the search box and press **Search**, or pick a suggestion. Arrow keys move through suggestions, **Enter** picks one, **Esc** closes the list. |
+| See the weather somewhere else | Type a city and press **Enter** or **Search** to go straight to the best match, or pick a suggestion. Each suggestion shows its region, country and distance from the place you are viewing. Add a region or country after a comma to narrow the list (`Paris, Texas`). Arrow keys move through suggestions; **Esc** closes the list, and pressing it again clears the field. |
+| Go back to a place you looked at | Click or tap the empty search box: your last five picks are listed under **Recent places**. |
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
+| Print or save as PDF | Use your browser's print command. You get one black-on-white page with the place, current conditions, details and forecast, without the map, search box or toggles. |
 
 When the page opens it works out roughly where you are, in this order:
 
@@ -107,7 +115,10 @@ When the page opens it works out roughly where you are, in this order:
    denied.") that you can dismiss.
 
 Clicking **Use my location** skips step 1 and asks the browser for permission
-directly; if you deny it, you get New York and the same message. After a
+directly. If you deny it (or the browser has location blocked), you get the same
+message and the dashboard keeps the place it was already showing, usually the
+IP estimate. With nothing on screen yet it uses the IP estimate, and New York
+only when that is unavailable too. After a
 successful lookup, the coordinates and resolved name are cached in this
 browser for 15 minutes as `user-location`; later uses and refreshes reuse that
 client-side location without asking again.
@@ -124,12 +135,26 @@ recent picks are stored only in your browser.
 ### What the numbers mean
 
 - **Temperature and wind** are current readings for the chosen coordinates.
-- **Precipitation** is rain falling now, in millimetres.
-- **Humidity** is relative humidity, as a percentage.
-- **UV index** is the current ultraviolet index (0 is none, 11 and above is extreme).
-- **Checked** is the time your browser last fetched the data, not the time the
-  weather station measured it. The server caches results for 30 seconds.
+  **Feels like** adds the effect of wind and humidity. **High / Low** are
+  today's extremes. The arrow shows which way the wind blows; the text says
+  where it comes from ("from SW").
+- **Precipitation** leads with today's highest hourly chance of rain, then
+  today's total of rain, showers and snow in millimetres. "Raining now" appears
+  only while it is raining.
+- **Snowfall** appears only when snow is falling or expected today, in
+  centimetres.
+- **Humidity** is relative humidity; **Dew point** is the temperature at which
+  the air would be saturated.
+- **Pressure** is sea-level pressure, in inHg (°F · mph) or hPa (°C · km/h).
+- **Visibility** is in miles or kilometres.
+- **UV index** shows the current reading and today's peak, as "3.1 / 5.0", with the
+  current level on the WHO scale (Low, Moderate, High, Very high or Extreme).
+- **Sunrise and sunset** are in the place's local time.
+- The hero banner switches to a **night** look (darker, with a moon) after
+  sunset at that place.
 - **Hourly forecast** shows the next twelve hours, starting with **Now**.
+- Any one value the weather model doesn't provide shows `--`. The server caches
+  weather for 30 seconds.
 
 ## How it works
 
@@ -138,7 +163,7 @@ Browser (public/static/ + app/templates/)
    |
    |  GET /location         approximate position from the visitor's IP
    |  GET /search           find a city by name
-   |  GET /weather          current conditions + hourly forecast
+   |  GET /weather          current conditions, daily summary, hourly forecast
    |  GET /reverse-location turn browser coordinates into a place name
    v
 Flask app (app/weather_app.py)  --  validates input, caches, rate limits
@@ -162,7 +187,8 @@ responses are JSON. Errors look like `{"error": "message"}`.
 
 ### `GET /weather`
 
-Current conditions and the next hours of forecast for a point.
+Current conditions, today's and tomorrow's summary, and the next hours of
+forecast for a point.
 
 | Parameter | Type | Required | Range |
 | --- | --- | --- | --- |
@@ -177,25 +203,53 @@ curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
 {
   "latitude": 40.71,
   "longitude": -74.01,
+  "timezone": "America/New_York",
   "current": {
+    "time": 1794672000,
     "temperature_2m": 64.0,
+    "apparent_temperature": 62.1,
     "wind_speed_10m": 8.4,
+    "wind_direction_10m": 225,
     "weather_code": 2,
+    "precipitation": 0.0,
     "rain": 0.0,
+    "snowfall": 0.0,
     "relative_humidity_2m": 58,
-    "uv_index": 2.6
+    "dew_point_2m": 49.0,
+    "pressure_msl": 1016.4,
+    "visibility": 24140,
+    "is_day": 1,
+    "uv_index": 2.4
   },
   "hourly": {
-    "time": ["2026-11-12T13:00", "2026-11-12T14:00"],
+    "time": [1794672000, 1794675600],
     "temperature_2m": [64.0, 64.0],
     "weather_code": [2, 2]
+  },
+  "daily": {
+    "time": [1794632400, 1794718800],
+    "temperature_2m_max": [66.2, 61.0],
+    "temperature_2m_min": [52.3, 49.8],
+    "sunrise": [1794657600, 1794744060],
+    "sunset": [1794693960, 1794780300],
+    "uv_index_max": [3.1, 2.4],
+    "precipitation_sum": [0.4, 0.0],
+    "precipitation_probability_max": [20, 5],
+    "snowfall_sum": [0.0, 0.0]
   },
   "source": "Open-Meteo"
 }
 ```
 
-- Units follow the server configuration. The defaults are °F and mph; rain is
-  in millimetres.
+- Temperatures are in °F, wind in mph, precipitation in millimetres, snowfall
+  in centimetres, pressure in hPa and visibility in metres. The dashboard
+  converts to metric itself.
+- Times are Unix timestamps in seconds. `daily.time` is each day's local
+  midnight, and `timezone` says which zone to show times in.
+- `current` always has `time`, `temperature_2m`, `wind_speed_10m`,
+  `weather_code`, `rain` and `relative_humidity_2m`. The other current fields,
+  and `daily` as a whole, can be missing or `null` when the weather model
+  doesn't provide them.
 - `weather_code` is a [WMO weather code](https://open-meteo.com/en/docs#weathervariables).
   The dashboard turns it into a label such as *Clear*, *Rain* or *Thunderstorm*.
 - `hourly` holds up to 48 hours so the dashboard can show 12 consecutive
@@ -207,7 +261,7 @@ Finds places by name. Returns up to 10 matches.
 
 | Parameter | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `q` | string | yes | At least one character. |
+| `q` | string | yes | A place name of at least two characters, optionally followed by one or more comma-separated regions, countries or two-letter country codes (`Paris, Texas`, `Paris, FR`, `Springfield, Illinois, US`). |
 | `latitude`, `longitude` | number | no | Rank nearby places higher. Send both or neither. Defaults to New York. |
 | `affinity` | string | no | Comma-separated names to favour, such as recent picks (first 10 are used). |
 
@@ -223,20 +277,43 @@ curl "http://localhost:5000/search?q=paris"
       "context": "Ile-de-France, France",
       "latitude": 48.85341,
       "longitude": 2.3488,
-      "population": 2138551
+      "population": 2138551,
+      "country_code": "FR",
+      "distance_km": 5837
     }
   ]
 }
 ```
 
-Results are ordered by a weighted score: 55% how well the name matches, 15%
-proximity, 20% population and 10% affinity. They are cached for five minutes.
+`distance_km` is measured from `latitude`/`longitude` (New York by default),
+rounded to whole kilometres.
+
+How results are chosen and ordered:
+
+1. Open-Meteo is asked for up to 20 places matching the name. Every valid
+   match is ranked, not just the provider's first 10.
+2. Each part after a comma must match the place's country code exactly, or the
+   start of a word in its region or country: `Paris, tex` finds Texas, but
+   `Moscow, us` does not match Russia. With several parts
+   (`Springfield, Illinois, US`) all must match. If no place matches, the parts
+   are ignored instead of returning nothing.
+3. Each place gets a weighted score: 55% how well the name matches, 15%
+   proximity, 20% population and 10% affinity. Name matching ignores case and
+   accents, so `sao paulo` matches *São Paulo* exactly.
+4. Places with the same name and region are listed once, and the best 10 are
+   returned.
+
+The provider's answer is cached for five minutes per name and shared by every
+visitor. The ranking is worked out for each request, so it still reflects your
+position and recent picks.
 
 ### `GET /reverse-location`
 
 Turns coordinates into a place name. Takes `latitude` and `longitude`, and
-returns `{"name": "New York, New York, United States"}`. If the lookup fails the
-dashboard still shows the weather, labelled **Your location**.
+returns `{"name": "New York, New York, United States"}`. Names are cached for an
+hour for coordinates within about 100 m of each other, as Nominatim's usage
+policy asks. If the lookup fails the dashboard still shows the weather, labelled
+**Your location**.
 
 ### `GET /location`
 
@@ -248,8 +325,9 @@ Estimates the caller's coordinates from their IP address. Returns `latitude`,
   anywhere.
 - **Elsewhere** the caller's public address is sent to the IP location provider
   (see [Data sources](#data-sources-and-credits)) and results are cached in
-  memory for an hour per address. Local and private addresses (such as `127.0.0.1`) cannot
-be located and return `404`. IP-based locations are approximate.
+  memory for an hour per address. Local and private addresses (such as
+  `127.0.0.1`) cannot be located and return `404`. IP-based locations are
+  approximate.
 
 ### `GET /healthz` and `GET /readyz`
 
@@ -276,9 +354,9 @@ Set environment variables before starting the app. All are optional.
 | --- | --- | --- |
 | `PORT` | `5000` | Port for `python -m app.weather_app` only. The Docker image always listens on 5000. |
 | `WEATHER_CACHE_TTL` | `30` | Seconds to cache a weather result. |
-| `WEATHER_CACHE_SIZE` | `256` | Most locations kept in the weather cache. |
+| `WEATHER_CACHE_SIZE` | `256` | Most entries kept in each in-memory cache (weather, search, IP locations and place names). |
 | `SEARCH_CACHE_TTL` | `300` | Seconds to cache search results. |
-| `UPSTREAM_TIMEOUT` | `5` | Seconds to wait for a provider. |
+| `UPSTREAM_TIMEOUT` | `5` | Seconds to wait for a provider. A failed or rate-limited call is retried once. |
 | `RATE_LIMIT` | `60` | Requests allowed per client in each window. |
 | `RATE_WINDOW` | `60` | Length of the rate-limit window, in seconds. |
 | `TRUST_VERCEL_CLIENT_IP` | `true` on Vercel, otherwise `false` | Identify visitors by Vercel's `X-Vercel-Forwarded-For` header when rate limiting. Leave it off anywhere else: a client could forge the header. |
@@ -321,10 +399,12 @@ reverse proxy in front.
 (AirPlay Receiver on macOS is a common one). Start the app on another port:
 `PORT=8000 python -m app.weather_app`, or `docker run -p 8000:5000 weather-lookup`.
 
-**The page shows New York, or the wrong city, when it opens.** The page starts
-from a silent IP-based estimate. New York means you denied the browser's
-permission prompt (the message says so) or your position could not be found. A
-wrong city is normal for VPNs and mobile networks. Press **Use my location**
+**The page shows New York, or the wrong city, when it opens.** If it is a place
+you picked before, that is your remembered last place (kept for 30 days):
+search or press **Use my location** to replace it. Otherwise the page starts
+from a silent IP-based estimate. New York means the IP estimate was unavailable
+(for example on a private network) and you denied the browser's permission
+prompt, or your position could not be found. A wrong city is normal for VPNs and mobile networks. Press **Use my location**
 and allow the browser prompt for a precise position. If you denied it earlier,
 allow location for the site in your browser settings first. Location needs a
 secure context: `http://localhost` works, but a plain-HTTP address on another
@@ -352,10 +432,13 @@ app/
   templates/
     weather_dashboard.html Page markup
 public/static/             Served at /static (by Vercel's CDN, or by Flask locally)
-  css/dashboard.css        Styles and design tokens
-  js/dashboard.js          Page logic
+  css/dashboard.css        Styles, design tokens and print layout
+  css/map-marker.css       Location marker on the background map
+  js/dashboard.js          Page logic: location, rendering, units
   js/search-box.js         Accessible city search (ARIA combobox)
-  js/format.js             Units, weather-code labels, number formatting
+  js/format.js             Units, compass points, weather-code labels, number and time formatting
+  js/map-marker.js         Places the marker on the map from the weather coordinates
+  js/scroll-fade.js        Fades the forecast's edges while it can scroll
   js/storage.js            Safe localStorage wrapper
   img/world-map.svg        Background map (generated, see below)
   fonts/                   Space Grotesk and Newsreader (self-hosted) and their licences
@@ -363,8 +446,12 @@ vercel.json                Vercel function and static-file cache settings
 pyproject.toml             Python version, dependencies and Vercel entrypoint
 scripts/
   build-world-map.mjs      Generates the map from Natural Earth data
-tests/test_app.py         Test suite
-docs/                     Screenshot, design handoff spec, design system
+tests/
+  test_app.py              Endpoints, caching, rate limiting, headers, page and static files
+  test_api_contracts.py    What the provider-response validators accept and reject
+  js/                      Unit tests for the ES modules (node --test)
+  e2e/                     Playwright browser tests, providers mocked
+docs/                      Screenshot, design handoff spec, design system
 ```
 
 ### Run the tests
@@ -384,7 +471,7 @@ Frontend and browser tests (Node 20+):
 ruff check .                          # lint
 node --test "tests/js/*.test.mjs"     # unit tests for the ES modules, no dependencies
 cd tests/e2e && npm ci && npx playwright install chromium
-npx playwright test                   # resize, location and print tests; providers are mocked
+npx playwright test                   # map, location, weather details and print tests; providers are mocked
 ```
 
 The browser tests start the app with `.venv`'s Python when that folder exists,
@@ -413,7 +500,13 @@ npm run build-map
 
 The page loads nothing from other sites, so the Content Security Policy is
 strict (`default-src 'self'`). Keep it that way: no inline `<script>` or
-`style=` attributes, and self-host any new font or image.
+`style=` attributes in the HTML, and self-host any new font or image. Setting
+styles from JavaScript through `element.style` (as the map marker and wind
+arrow do) is allowed.
+
+To refresh `docs/dashboard.png`, take a 994 px wide screenshot of the page in
+dark mode down to the bottom of the result card. Any browser's screenshot tool
+or Playwright works; no special tooling is needed.
 
 ## Deploying
 
