@@ -56,7 +56,6 @@
   --color-on-primary: #ffffff;
   --color-danger: #b42318;
   --color-danger-bg: #fef3f2;
-  --color-focus: #1769aa;
   --color-focus-ring: rgb(23 105 170 / 0.6);
   --color-map-line: rgb(23 33 43 / 0.12);
   --shadow-card: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1);
@@ -70,6 +69,8 @@
   --color-field: rgb(243 247 250 / 0.8);
   --glass-blur: blur(4px) saturate(130%);
   --shadow-glass: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1), inset 0 1px 0 var(--color-glass-edge);
+
+  --color-night-shade: rgb(8 12 32 / 0.4); /* night hero, see #panel[data-daylight] */
 
   --color-marker: #1769aa;
   --color-marker-halo: rgb(23 105 170 / 0.22);
@@ -115,7 +116,6 @@
     --color-on-primary: #08202f;
     --color-danger: #ff9a8f;
     --color-danger-bg: #3a1a17;
-    --color-focus: #82c3f5;
     --color-focus-ring: rgb(130 195 245 / 0.6);
     --color-map-line: rgb(232 238 243 / 0.16);
     --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
@@ -285,6 +285,7 @@ main {
 }
 
 .btn:hover:not(:disabled) { background: var(--color-primary-hover); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 
 .btn.secondary {
   color: var(--color-primary);
@@ -460,6 +461,7 @@ main {
   z-index: 10;
   max-height: min(24rem, 50vh);
   overflow-y: auto;
+  overscroll-behavior: contain; /* scrolling the list never scrolls the page behind it */
   padding: var(--space-2);
   background: var(--color-surface); /* opaque: a menu must not let the card behind it ghost through */
   border: 1px solid var(--color-border-strong);
@@ -474,26 +476,63 @@ main {
 .search-message {
   margin: 0;
   padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-muted);
 }
 
 .search-list { display: grid; gap: var(--space-1); }
 
+/* Name and region on the left, distance on the right. At least 44px tall so it
+   is an easy tap target. */
 .search-option {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: 2.75rem;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.search-option small { color: var(--color-muted); }
+.search-option-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The typed part of the name: bold-underlined rather than coloured, so it reads
+   in both themes without a new colour. */
+.search-option-name mark {
+  color: inherit;
+  background: none;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.search-option-context {
+  grid-column: 1;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.search-option-distance {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 .search-option:hover,
 .search-option[aria-selected="true"] { background: var(--color-surface-sunken); }
 
 .search-option[aria-selected="true"] {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: -3px;
 }
 
 @media (max-width: 35.99rem) {
@@ -504,7 +543,8 @@ main {
   .search-row .btn,
   .search-row .link-button { width: 100%; }
 
-  .search-popup { max-height: min(20rem, 55dvh); }
+  /* Leaves room for the on-screen keyboard and the field above. */
+  .search-popup { max-height: min(20rem, 45dvh); }
 }
 
 /* ---------------------------------------------------------------------------
@@ -566,14 +606,14 @@ main {
 .state-loading {
   gap: var(--space-3);
   padding: var(--space-5);
-  animation: skeleton-appear 0.2s ease-out 300ms backwards;
+  animation: skeleton-appear 0.2s var(--ease) 300ms backwards;
 }
 
 .skeleton {
   height: 1rem;
   background: var(--color-surface-sunken);
   border-radius: var(--radius-sm);
-  animation: skeleton-pulse 2s ease-in-out infinite;
+  animation: skeleton-pulse 2s var(--ease) infinite;
 }
 
 .skeleton.big { width: 60%; height: 4rem; }
@@ -635,6 +675,22 @@ main {
 #panel[data-condition="storm"] { --tone-a: #26254d; --tone-b: #4d3e79; }
 #panel[data-condition="fog"] { --tone-a: #51606b; --tone-b: #5c6b74; }
 
+/* Night (Open-Meteo is_day = 0): the same tone, shaded 40% toward navy, with a
+   moon instead of the sun glow and a few faint stars in the top-right corner.
+   Shading only raises white-text contrast; even at the moon's centre the worst
+   stop measures 5.9:1 (the day glow's centre is 4.0:1 on the lightest stops). */
+#panel[data-daylight="night"] .hero {
+  background:
+    radial-gradient(circle at 70% 14%, rgb(255 255 255 / 0.55) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 78% 34%, rgb(255 255 255 / 0.45) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 93% 10%, rgb(255 255 255 / 0.5) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 26%, rgb(255 255 255 / 0.35) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 86% 22%, rgb(255 255 255 / 0.16) 0 1.25rem,
+      rgb(255 255 255 / 0.05) 1.3rem 2.75rem, transparent 3rem),
+    linear-gradient(var(--color-night-shade), var(--color-night-shade)),
+    linear-gradient(135deg, var(--tone-a), var(--tone-b));
+}
+
 .hero-label {
   margin: 0;
   font-size: var(--text-sm);
@@ -661,10 +717,17 @@ main {
   vertical-align: top;
 }
 
+/* Feels like, today's high and low. */
+.hero-sub {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .hero-wind {
   display: grid;
   margin: 0;
-  padding-bottom: 0.35rem;
+  padding-bottom: var(--space-1);
   text-align: right;
 }
 
@@ -676,20 +739,38 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+.hero-wind-direction { font-size: var(--text-sm); }
+
+/* Points the way the wind blows; dashboard.js sets --wind-rotate. */
+.wind-arrow {
+  display: inline-block;
+  transform: rotate(var(--wind-rotate, 0deg));
+}
+
+.wind-arrow[hidden] { display: none; }
+
+/* Tiles wrap to as many columns as fit (4 at full width). Each tile draws its
+   bottom and left edge. The -1px margins tuck the first column's left edge under
+   the card's clipped side and lay the last row's bottom edge on the forecast's
+   full-width top border, so a part-filled last row never leaves a step. */
 .details {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  margin: 0 0 -1px;
+  overflow: hidden;
 }
 
 .details > div {
   display: grid;
+  align-content: start;
   gap: var(--space-1);
+  margin-left: -1px;
   padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
 }
 
-.details > div + div { border-left: 1px solid var(--color-border); }
+.details [hidden] { display: none; }
 
 .details dt {
   font-size: var(--text-sm);
@@ -703,6 +784,18 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+.details .detail-sub {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+/* Today's UV peak, muted beside the current reading. */
+.details .uv-max {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
 .forecast-section {
   padding: var(--space-4) var(--space-5) var(--space-5);
   border-top: 1px solid var(--color-border);
@@ -710,7 +803,7 @@ main {
 
 .forecast-heading {
   margin: 0 0 var(--space-3);
-  font-size: 1rem;
+  font-size: var(--text-md);
 }
 
 .forecast {
@@ -791,13 +884,10 @@ main {
 
   .hero { padding: var(--space-4); }
 
-  .details { grid-template-columns: 1fr; }
+  /* Two columns on a phone instead of one long list of eight tiles. */
+  .details { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); }
 
   .details > div { padding-inline: var(--space-4); }
-
-  .details > div + div {
-    border-left: 0;
-  }
 
   .hero-wind { text-align: left; }
 
@@ -957,6 +1047,8 @@ footer a { color: inherit; }
   cursor: pointer;
 }
 
+.toast-close:hover { background: var(--color-surface-sunken); }
+
 /* ---------------------------------------------------------------------------
    Print: just the weather, in black on white. No map, marker, glass or
    controls, and no backgrounds (browsers skip them by default, which would
@@ -990,25 +1082,58 @@ footer a { color: inherit; }
     display: none !important;
   }
 
+  @page { margin: 15mm; }
+
+  /* Slightly smaller type so the whole sheet, footer included, fits one A4 or Letter page. */
+  html { font-size: 87.5%; }
+
   body { min-height: 0; }
 
-  main { padding: 0; gap: var(--space-4); }
+  footer { padding-bottom: 0; }
 
-  .card { break-inside: avoid; }
+  /* A plain sheet: no card frame, the page margin does the framing, and
+     sections are divided by single rules. Everything lines up on one left edge. */
+  main { max-width: none; padding: 0; gap: var(--space-3); }
 
-  .hero {
+  .page-header { padding-inline: var(--space-5); }
+
+  .card {
+    border: 0;
+    border-radius: 0;
+    break-inside: avoid;
+  }
+
+  .hero,
+  #panel[data-daylight] .hero {
     color: inherit;
     background: none;
     border-block: 1px solid var(--color-border);
   }
 
-  /* Show every hour instead of a scroll strip cut off at the page edge. */
+  .hero { padding-block: var(--space-4); }
+
+  .temperature { font-size: 4rem; }
+
+  /* Plain columns with no dividers: on paper the grid lines only add noise. */
+  .details { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .details > div {
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+    border: 0;
+  }
+
+  /* Every hour in two even rows of six, divided only between columns, instead
+     of a scroll strip cut off at the page edge. */
   .forecast {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    row-gap: var(--space-3);
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
   }
 
-  .forecast-card { border-block-end: 1px solid var(--color-border); }
+  .forecast-card { min-height: 0; }
+
+  .forecast-card:nth-child(6n + 1) { border-inline-start: 0; }
 }

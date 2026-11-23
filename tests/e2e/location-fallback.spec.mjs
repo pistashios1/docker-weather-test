@@ -100,3 +100,53 @@ test("picking a search result is remembered for the next visit", async ({ page }
   await page.reload();
   await expect(page.locator("#location-name")).toHaveText("Oslo");
 });
+
+test.describe("IP lookup succeeds, then Use my location is denied", () => {
+  test.use({ permissions: [] });
+  test("keeps the IP location instead of jumping to New York", async ({ page }) => {
+    await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+    await page.addInitScript(() => {
+      navigator.geolocation.getCurrentPosition = (_ok, fail) => fail({ code: 1 });
+    });
+    await page.goto("/");
+    await expect(page.locator("#location-name")).toHaveText("London, England");
+
+    await page.locator("#location-button").click();
+
+    await expect(page.locator("#toast-text")).toHaveText("Location permission was denied.");
+    await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
+    await expect(page.locator("#location-name")).toHaveText("London, England");
+  });
+});
+
+test.describe("a newer place failed to load, then Use my location is denied", () => {
+  test.use({ permissions: [] });
+  test("goes back to the place whose weather is actually on screen", async ({ page }) => {
+    await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+    await page.route("**/search?**", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ results: [
+        { name: "Tokyo", context: "Tokyo, Japan", latitude: 35.68, longitude: 139.69, population: 1 },
+      ] }),
+    }));
+    await page.addInitScript(() => {
+      navigator.geolocation.getCurrentPosition = (_ok, fail) => fail({ code: 1 });
+    });
+    await page.goto("/");
+    await expect(page.locator("#location-name")).toHaveText("London, England");
+
+    // Tokyo's weather fails to load (registered last, so it wins over mockApi's route).
+    await page.route("**/weather?latitude=35.68**", (route) => route.fulfill({
+      status: 502, contentType: "application/json", body: JSON.stringify({ error: "weather service unavailable" }),
+    }));
+    await page.locator("#location-search").fill("Tokyo");
+    await page.locator("#search-option-0").click();
+    await expect(page.locator("#panel")).toHaveAttribute("data-state", "error");
+
+    await page.locator("#location-button").click();
+
+    await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
+    await expect(page.locator("#location-name")).toHaveText("London, England");
+    await expect(page.locator("#status")).toHaveText("Showing weather for London, England.");
+  });
+});

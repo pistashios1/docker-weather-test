@@ -18,6 +18,18 @@ export const numberFormat = (digits) => {
 
 export const fahrenheitToCelsius = (fahrenheit) => ((fahrenheit - 32) * 5) / 9;
 export const mphToKmh = (mph) => mph * 1.609344;
+export const hpaToInHg = (hpa) => hpa * 0.02953;
+
+// Open-Meteo reports visibility in metres whatever units are requested.
+export const metresToDistance = (metres, metric) =>
+  metric ? metres / 1000 : metres / 1609.344;
+
+const COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+
+// Wind direction is where the wind comes from, in degrees clockwise from north.
+export const compassPoint = (degrees) =>
+  COMPASS[Math.round((((degrees % 360) + 360) % 360) / 22.5) % 16];
 
 export const toneForFahrenheit = (fahrenheit) => {
   if (fahrenheit <= 32) return "freezing";
@@ -96,4 +108,14 @@ export const formatCoordinates = (latitude, longitude) => {
   const lat = `${numberFormat(2).format(Math.abs(latitude))}° ${latitude >= 0 ? "N" : "S"}`;
   const lon = `${numberFormat(2).format(Math.abs(longitude))}° ${longitude >= 0 ? "E" : "W"}`;
   return `${lat}, ${lon}`;
+};
+
+// WHO UV index categories. The WHO scale is whole numbers, so 2.6 counts as 3 (Moderate).
+export const uvCategory = (index) => {
+  index = Math.round(index);
+  if (index < 3) return "Low";
+  if (index < 6) return "Moderate";
+  if (index < 8) return "High";
+  if (index < 11) return "Very high";
+  return "Extreme";
 };
