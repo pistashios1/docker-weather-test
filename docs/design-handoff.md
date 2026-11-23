@@ -9,7 +9,7 @@ against it.
 
 A single page where a person looks up the weather for a place: search for a
 city or use their location, then read current conditions, today's summary
-(high and low, chance of rain, UV peak, sunrise and sunset) and the next twelve
+(high and low, chance of rain, UV peak, sunrise, sunset and how much daylight is left) and the next twelve
 hours. One column, no navigation. The result is the point of the page, so the
 controls are kept to one row and the result sits directly below them.
 
@@ -17,8 +17,8 @@ controls are kept to one row and the result sits directly below them.
 
 | Breakpoint | Layout |
 | --- | --- |
-| Wide, 36rem and up | Header: title left, unit toggle right. Search row: field, **Search**, **Use my location** link on one line. Details: tiles at least 11rem wide, as many columns as fit (4 at the full 56rem column, so 7 tiles make rows of 4 and 3). Forecast: 12 cards in one row from 52rem, scrolls sideways below that. |
-| Narrow, under 36rem | Header stacks. Search field is on its own line, **Search** and the **Use my location** link share the next. Details: tiles at least 8.5rem wide, so two columns on a phone. Hero wind aligns left and sits below the temperature. Forecast scrolls sideways. |
+| Wide, 36rem and up | Header: title left, unit toggle right. Search row: field, **Search**, **Use my location** link on one line. Details: tiles at least 11rem wide, as many columns as fit (4 at the full 56rem column, so the 8 tiles make two rows of 4). Forecast: 12 cards in one row from 52rem, scrolls sideways below that. |
+| Narrow, under 36rem | Header stacks. Search field is on its own line, **Search** and the **Use my location** link share the next. Details: tiles at least 8.5rem wide, so two columns on a phone. Hero: the high/low stays in the top-right corner; the wind takes a full row below the temperature and aligns left. Forecast scrolls sideways. |
 
 - Header, search card and result card share one column, at most 56rem wide (`--column-width`), centred.
 - After a successful lookup, if the result starts in the lower part of the screen (below 55% of the viewport height) it is scrolled into view. It uses an instant jump when the system asks for reduced motion.
@@ -80,24 +80,43 @@ below, cool to 55, mild to 75, warm to 90, hot above).
 
 | Side | Content | Example |
 | --- | --- | --- |
-| Left | Label, condition (icon and name), temperature, then one `--text-sm` line | "Feels like 58° · High 66° · Low 48°" |
-| Right (below on narrow) | "Wind", speed, then an arrow and direction in `--text-sm` | "7.0 mph", "↗ from SW" |
+| Left | Label, condition (icon and name), temperature, then one `--text-sm` line | "Feels like 58°" |
+| Right, top (`.hero-range`) | Today's high and low in `--text-lg`, 600, tabular numbers, one line | "H: 66°, L: 48°" |
+| Right, bottom (`.hero-wind`; a full row below on narrow) | "Wind", speed, then an arrow and direction in `--text-sm` | "7.0 mph", "↗ from SW" |
+
+The right column (`.hero-side`) stretches to the hero's height, so the high/low
+lines up with the label at the top and the wind with the feels-like line at the
+bottom. On narrow screens the high/low is positioned in the top-right corner
+(`--space-4` from the edges) and the wind wraps to its own row.
+
+**Why the high/low moved:** it is the day's range, not a current reading, so it
+sits apart from "Feels like" and reads at a glance from the corner. Screen readers
+hear "High 66°, Low 48°": the "H:" and "L:" letters are `aria-hidden`, and
+visually hidden words "High" and "Low" take their place.
 
 - **Feels like** is `apparent_temperature`. **High / Low** are today's `temperature_2m_max` / `_min`. All three follow the unit toggle.
 - **Wind direction** is where the wind comes from, as one of 16 compass points ("from SW"). The arrow points the opposite way, which is where the wind is blowing. It is rotated by `--wind-rotate` (set by `dashboard.js`), is `aria-hidden`, and is hidden when the direction is missing.
 - **Day and night** follow Open-Meteo's `is_day` (`data-daylight="day"` or `"night"` on `#panel`; missing means day).
-  - **Day:** the tone gradient with a soft sun glow at the top right.
-  - **Night:** the same tone shaded 40% toward navy (`--color-night-shade`), a moon (a 16% white disc with a 5% halo) where the sun glow was, and four 1px stars in the top-right corner.
-  - Night only makes white text more readable: the worst case is 5.9:1, even on the moon. On day, each stop is 4.9:1 or better on its own, but the sun glow's centre drops the two lightest stops to 4.0:1. Keep text out of the top-right corner.
+  - **Day:** the tone gradient with a soft sun glow at the top right, behind the high/low.
+  - **Night:** the same tone shaded 40% toward navy (`--color-night-shade`), a moon (a 16% white disc with a 5% halo) and four 1px stars. They are kept in the middle of the banner (the moon at 64% across, 30% down), so nothing sits behind the high/low.
+  - Night only makes white text more readable: the worst case is 5.9:1, even on the moon. On day, each stop is 4.9:1 or better on its own, but the sun glow's centre drops the two lightest stops to 4.0:1. That is why the high/low is large text (21.6px, 600), which needs only 3:1. Keep any small text out of the top-right corner.
 
 ### Details grid
 
 A `dl` of tiles below the hero. Each tile has a label (`dt`, `--text-sm`,
 muted), a value (`dd`, `--text-md`, 600, tabular numbers) and optional
-sub-lines (`dd.detail-sub`, `--text-sm`, 400, muted). Padding is
-`--space-3` × `--space-5` (`--space-4` sideways on narrow). Tiles are divided by
-1px `--color-border` lines on their left and bottom. A part-filled last row
-leaves blank space, not a broken line.
+sub-lines (`dd.detail-sub`, `--text-sm`, 400, muted). Tiles whose value is one
+number (humidity, dew point, visibility, pressure, sunrise, sunset) use
+`dd.detail-big`, a step larger at `--text-lg`, so the headline figure is seen
+first. The composite values (precipitation's "40% chance", UV's "3.1 / 5.0") stay
+at `--text-md`. Padding is `--space-3` × `--space-5` (`--space-4` sideways on
+narrow).
+
+Tiles are divided by 1px `--color-border` lines on their left and bottom. The last
+row's bottom lines are clipped off (`clip-path: inset(0 0 2px 0)`; 2px because rows can end on a fractional pixel), and the
+forecast has no top rule, so the tiles run straight into the hourly forecast with
+no line between them. A part-filled last row leaves blank space, not a broken
+line.
 
 "Today" is the daily row whose start (local midnight) is the last one at or
 before the current time.
@@ -106,17 +125,39 @@ before the current time.
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Precipitation | "40% chance" | "1.2 mm today"; "Raining now: 0.4 mm" | mm in both | daily `precipitation_probability_max`, `precipitation_sum` (rain, showers and snow combined); current `rain` | Always. The "Raining now" line only when current `rain` is above 0 |
 | 2 | Snowfall | "2.1 cm today", or "0.3 cm now" if there's no daily total | none | cm in both | daily `snowfall_sum`, current `snowfall` | Only when either is above 0 |
-| 3 | Humidity | "55%" | none | % | current `relative_humidity_2m` | Always |
-| 4 | Dew point | "45°" | none | °F / °C | current `dew_point_2m` | Always |
-| 5 | Pressure | "29.92 inHg" / "1,013 hPa" | none | inHg (2 decimals) / hPa (whole) | current `pressure_msl` (sea level) | Always |
-| 6 | Visibility | "15 mi" / "24 km" | none | mi / km; 1 decimal under 10, whole from 10 | current `visibility` (metres) | Always |
+| 3 | Humidity | "55%" (big) | none | % | current `relative_humidity_2m` | Always |
+| 4 | Dew point | "45°" (big) | none | °F / °C | current `dew_point_2m` | Always |
+| 5 | Visibility | "15 mi" / "24 km" (big) | none | mi / km; 1 decimal under 10, whole from 10 | current `visibility` (metres) | Always |
+| 6 | Pressure | "29.92 inHg" / "1,013 hPa" (big) | none | inHg (2 decimals) / hPa (whole) | current `pressure_msl` (sea level) | Always |
 | 7 | UV index | "3.1 / 5.0": current in the value style, "/ 5.0" muted (400) | "Now / today's max · Moderate" (WHO level of the current reading, rounded to a whole number first as the WHO scale is: Low 0–2, Moderate 3–5, High 6–7, Very high 8–10, Extreme 11+) | none | current `uv_index`, daily `uv_index_max` | Always; a missing side shows `--`, and the level is left off when the current reading is missing |
-| 8 | Sunrise and sunset | "Sunrise 7:00 AM" | "Sunset 4:30 PM" | the place's local time | daily `sunrise`, `sunset` (Unix, shown in the response's `timezone`) | Always |
+| 8 | Sunrise | "7:00 AM" (big) | "9 h 30 min of daylight" (today's day length) | the place's local time | daily `sunrise`, `sunset` (Unix, shown in the response's `timezone`) | Always |
+| 9 | Sunset | "4:30 PM" (big) | Daylight countdown (see below), then the daylight bar | the place's local time | daily `sunset`; today's `sunrise`; tomorrow's `sunrise` | Always |
+
+#### Sunset tile: daylight countdown
+
+The new feature. It answers "how long until dark?" (or "until it's light?") without
+mental arithmetic, using data the page already has. The sub-line and bar update
+with the page's one-second clock, so they keep moving while the page stays open.
+They are worked out by `daylightStatus()` in `format.js`.
+
+| Moment at the place | Sub-line | Bar (`.daylight-track`) |
+| --- | --- | --- |
+| Before today's sunrise | "Sunrise in 2 h" | Hidden |
+| Between sunrise and sunset | "4 h 30 min of daylight left" | Shown, filled to the share of daylight gone: `(now − sunrise) / (sunset − sunrise)` |
+| After sunset | "Sunrise in 11 h" (tomorrow's sunrise) | Hidden |
+| After sunset, no tomorrow in the data | "The sun has set" | Hidden |
+| Polar day or night (sunset not after sunrise), or times missing | `--` | Hidden |
+
+- **Durations** read "3 h 24 min", "45 min" or "2 h", and "under a minute" at the end.
+- **The bar** is 0.375rem tall, a `--radius-pill` track in `--color-border` with a `--color-primary` fill. Its width comes from `--daylight` (0–1), which `dashboard.js` sets. It is `aria-hidden`, because the sub-line already says the same thing in words.
+- **"Today" here** is worked out from the live clock, not the weather's timestamp, so a page left open past midnight moves on to the next day's times.
 
 **Why these choices:**
 - Precipitation leads with the chance of rain because that's what people act on. The total underneath is the whole day's precipitation, snow included.
 - "Raining now" appears only while it rains, so a dry day has one less line.
 - UV shows the current reading next to today's peak: the current value alone reads 0 all night, while the peak says what the day will bring.
+- Sunrise and sunset each get their own tile, so both times read at the big size, and the sunset tile has room for the countdown.
+- Visibility comes before pressure because it is the reading people notice (fog, haze). Pressure matters mostly next to other readings.
 - Precipitation and snow stay in mm and cm under both settings because the unit toggle's labels name only temperature and wind.
 
 ### Search (ARIA combobox)
@@ -162,6 +203,7 @@ A new search cancels the previous one. The field turns off autocorrect, auto-cap
 | Skeleton | Loading longer than 300ms | Fade in, then slow opacity pulse | 200ms in, 2s pulse | `--ease` |
 | Toggle and switch | Change | Colour and knob move | 150ms | `--ease` |
 | Button | Press | Moves down 1px | instant | n/a |
+| Daylight bar | Every clock tick (1s) | Width follows the share of daylight gone; no transition | n/a | n/a |
 | Hero background | Condition or day/night change | Swaps instantly. CSS cannot animate between gradients, so the 250ms `background` transition has no visible effect. | n/a | n/a |
 
 Under `prefers-reduced-motion: reduce`, animations and transitions are
@@ -209,12 +251,12 @@ focus ring is drawn around the whole forecast section.
 - **Unknown weather code**: shown as "Weather" with a thermometer icon and a tone gradient.
 - **Precipitation, snow, humidity, visibility and UV** are clamped to zero or more.
 - **A missing or null detail** (some weather models leave out visibility, the daily block or `is_day`) shows `--` for that detail only. The weather still loads. Snowfall and "Raining now" stay hidden.
-- **Long sub-lines** ("Raining now: 12.4 mm") wrap inside their tile.
+- **Long sub-lines** ("Raining now: 12.4 mm", "3 h 12 min of daylight left") wrap inside their tile.
 - **Wind direction missing**: the arrow is hidden and the text reads `--`.
 - **Rate limited**: "Too many requests. Try again in N seconds."
 - **Storage blocked or empty**: every `localStorage` call is wrapped, and the page works without it.
 - **No JavaScript**: a notice explains the page needs it.
-- **Printing**: one A4 or Letter page, black on white with no backgrounds, 15mm margins, type at 87.5%. The map, marker, glass, search card, unit toggle, subtitle and animation switch are hidden. There is no card frame: the title, place, hero, details and forecast share one left edge, with single rules above and below the hero and above the forecast. Details are 4 plain columns with no dividers. The forecast is an even 6 × 2 grid with dividers only between columns. Day and night print the same.
+- **Printing**: one A4 or Letter page, black on white with no backgrounds, 15mm margins, type at 87.5%. The map, marker, glass, search card, unit toggle, subtitle and animation switch are hidden. There is no card frame: the title, place, hero, details and forecast share one left edge, with single rules above and below the hero. Details are 4 plain columns with no dividers. The forecast is an even 6 × 2 grid with dividers only between columns. Day and night print the same.
 
 ## Accessibility
 

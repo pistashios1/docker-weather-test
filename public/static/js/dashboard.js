@@ -9,7 +9,9 @@ const [
     formatClock,
     formatCoordinates,
     formatHour,
+    daylightStatus,
     forecastStartIndex,
+    formatDuration,
     mphToKmh,
     numberFormat,
     formatUtcOffset,
@@ -320,8 +322,32 @@ const renderDetails = (metric) => {
 
   const sunrise = today("sunrise");
   const sunset = today("sunset");
-  $("#sunrise").textContent = isNumber(sunrise) ? `Sunrise ${formatClock(sunrise, lastData.timezone)}` : "--";
-  $("#sunset").textContent = isNumber(sunset) ? `Sunset ${formatClock(sunset, lastData.timezone)}` : "--";
+  $("#sunrise").textContent = isNumber(sunrise) ? formatClock(sunrise, lastData.timezone) : "--";
+  $("#sunset").textContent = isNumber(sunset) ? formatClock(sunset, lastData.timezone) : "--";
+  $("#day-length").textContent = isNumber(sunrise) && isNumber(sunset) && sunset > sunrise
+    ? `${formatDuration(sunset - sunrise)} of daylight`
+    : "--";
+};
+
+// The Sunset tile's countdown and daylight bar. Runs with the clock, so it moves
+// on while the page stays open.
+const renderDaylight = (now) => {
+  const daily = lastData.daily;
+  const times = daily && Array.isArray(daily.time) ? daily.time : null;
+  const day = times ? forecastStartIndex(times, now) : -1;
+  const at = (field, index) =>
+    day >= 0 && Array.isArray(daily[field]) ? daily[field][index] ?? null : null;
+  const { text, progress } = daylightStatus({
+    now,
+    sunrise: at("sunrise", day),
+    sunset: at("sunset", day),
+    nextSunrise: at("sunrise", day + 1),
+  });
+  $("#daylight-left").textContent = text ?? "--";
+  $("#daylight-track").hidden = progress === null;
+  if (progress !== null) {
+    $("#daylight-fill").style.setProperty("--daylight", String(Math.min(1, Math.max(0, progress))));
+  }
 };
 
 const stopLocalTimeClock = () => {
@@ -336,6 +362,7 @@ const updateLocalTime = () => {
   const now = new Date();
   $("#local-time").textContent = formatClock(now, lastData.timezone);
   $("#utc-offset").textContent = formatUtcOffset(lastData.timezone, now);
+  renderDaylight(now.getTime() / 1000);
 };
 
 const startLocalTimeClock = () => {

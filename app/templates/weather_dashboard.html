@@ -107,19 +107,24 @@
               <span class="visually-hidden">Temperature </span>
               <span id="temperature">--</span><span class="unit" id="temperature-unit"></span>
             </p>
-            <p class="hero-sub">
-              Feels like <span id="feels-like">--</span>
-              · High <span id="temp-high">--</span> · Low <span id="temp-low">--</span>
+            <p class="hero-sub">Feels like <span id="feels-like">--</span></p>
+          </div>
+          <div class="hero-side">
+            <p class="hero-range">
+              <span aria-hidden="true">H:</span><span class="visually-hidden">High</span>
+              <span id="temp-high">--</span>,
+              <span aria-hidden="true">L:</span><span class="visually-hidden">Low</span>
+              <span id="temp-low">--</span>
+            </p>
+            <p class="hero-wind">
+              <span class="hero-wind-label">Wind</span>
+              <span class="hero-wind-value"><span id="wind">--</span> <span id="wind-unit"></span></span>
+              <span class="hero-wind-direction">
+                <span class="wind-arrow" id="wind-arrow" aria-hidden="true">↑</span>
+                <span id="wind-direction">--</span>
+              </span>
             </p>
           </div>
-          <p class="hero-wind">
-            <span class="hero-wind-label">Wind</span>
-            <span class="hero-wind-value"><span id="wind">--</span> <span id="wind-unit"></span></span>
-            <span class="hero-wind-direction">
-              <span class="wind-arrow" id="wind-arrow" aria-hidden="true">↑</span>
-              <span id="wind-direction">--</span>
-            </span>
-          </p>
         </div>
 
         <dl class="details">
@@ -130,19 +135,27 @@
             <dd class="detail-sub" id="rain-now" hidden></dd>
           </div>
           <div id="snow-row" hidden><dt>Snowfall</dt><dd id="snowfall">--</dd></div>
-          <div><dt>Humidity</dt><dd id="humidity">--</dd></div>
-          <div><dt>Dew point</dt><dd id="dew-point">--</dd></div>
-          <div><dt>Pressure</dt><dd id="pressure">--</dd></div>
-          <div><dt>Visibility</dt><dd id="visibility">--</dd></div>
+          <div><dt>Humidity</dt><dd class="detail-big" id="humidity">--</dd></div>
+          <div><dt>Dew point</dt><dd class="detail-big" id="dew-point">--</dd></div>
+          <div><dt>Visibility</dt><dd class="detail-big" id="visibility">--</dd></div>
+          <div><dt>Pressure</dt><dd class="detail-big" id="pressure">--</dd></div>
           <div>
             <dt>UV index</dt>
             <dd id="uv-index">--</dd>
             <dd class="detail-sub" id="uv-level">Now / today's max</dd>
           </div>
           <div>
-            <dt>Sunrise and sunset</dt>
-            <dd id="sunrise">--</dd>
-            <dd class="detail-sub" id="sunset">--</dd>
+            <dt>Sunrise</dt>
+            <dd class="detail-big" id="sunrise">--</dd>
+            <dd class="detail-sub" id="day-length">--</dd>
+          </div>
+          <div class="daylight">
+            <dt>Sunset</dt>
+            <dd class="detail-big" id="sunset">--</dd>
+            <dd class="detail-sub" id="daylight-left">--</dd>
+            <dd class="daylight-track" id="daylight-track" aria-hidden="true" hidden>
+              <span class="daylight-fill" id="daylight-fill"></span>
+            </dd>
           </div>
         </dl>
 

@@ -10,16 +10,16 @@ and hourly forecasts from Open-Meteo API for any city or your current location.
   visitors land on the last place they picked.
 - See the temperature with feels-like and today's high and low, wind speed and
   direction, chance of rain and precipitation, snowfall when it applies,
-  humidity, dew point, pressure, visibility, today's peak UV, sunrise and
-  sunset, and a twelve-hour forecast.
+  humidity, dew point, visibility, pressure, UV now and today's peak, sunrise
+  and sunset with a live daylight countdown, and a twelve-hour forecast.
 - The banner follows the time of day at that place, with a night look after
   sunset.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
 - Prints cleanly on one page (Ctrl+P / Cmd+P).
 - Runs locally with Python or Docker. No account or API key is required.
 
-![Weather Lookup dashboard at night for New York: the hero banner with temperature, feels-like, high and low, and wind direction, a grid of weather details, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
-*The dashboard (New York at night, dark mode).*
+![Weather Lookup dashboard for New York: the hero banner with temperature, feels-like, today's high and low in the top-right corner and wind direction, a grid of weather details including sunrise and a sunset daylight countdown, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
+*The dashboard (New York in the afternoon, dark mode).*
 
 ## Try it in two minutes
 
@@ -135,8 +135,9 @@ recent picks are stored only in your browser.
 ### What the numbers mean
 
 - **Temperature and wind** are current readings for the chosen coordinates.
-  **Feels like** adds the effect of wind and humidity. **High / Low** are
-  today's extremes. The arrow shows which way the wind blows; the text says
+  **Feels like** adds the effect of wind and humidity. **H: / L:** in the
+  banner's top-right corner are today's high and low. The arrow shows which way
+  the wind blows; the text says
   where it comes from ("from SW").
 - **Precipitation** leads with today's highest hourly chance of rain, then
   today's total of rain, showers and snow in millimetres. "Raining now" appears
@@ -149,7 +150,10 @@ recent picks are stored only in your browser.
 - **Visibility** is in miles or kilometres.
 - **UV index** shows the current reading and today's peak, as "3.1 / 5.0", with the
   current level on the WHO scale (Low, Moderate, High, Very high or Extreme).
-- **Sunrise and sunset** are in the place's local time.
+- **Sunrise** and **Sunset** are in the place's local time. Sunrise also shows
+  today's day length. Sunset counts down the daylight that is left, with a bar
+  showing how much of the day has gone. After dark it counts down to the next
+  sunrise. The countdown keeps moving while the page is open.
 - The hero banner switches to a **night** look (darker, with a moon) after
   sunset at that place.
 - **Hourly forecast** shows the next twelve hours, starting with **Now**.
