@@ -650,7 +650,7 @@ main {
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: space-between;
   gap: var(--space-3) var(--space-5);
   padding: var(--space-5);
@@ -676,16 +676,17 @@ main {
 #panel[data-condition="fog"] { --tone-a: #51606b; --tone-b: #5c6b74; }
 
 /* Night (Open-Meteo is_day = 0): the same tone, shaded 40% toward navy, with a
-   moon instead of the sun glow and a few faint stars in the top-right corner.
+   moon instead of the sun glow and a few faint stars, kept in the middle of the
+   banner so they never sit behind the high/low in the top-right corner.
    Shading only raises white-text contrast; even at the moon's centre the worst
    stop measures 5.9:1 (the day glow's centre is 4.0:1 on the lightest stops). */
 #panel[data-daylight="night"] .hero {
   background:
-    radial-gradient(circle at 70% 14%, rgb(255 255 255 / 0.55) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 78% 34%, rgb(255 255 255 / 0.45) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 93% 10%, rgb(255 255 255 / 0.5) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 62% 26%, rgb(255 255 255 / 0.35) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 86% 22%, rgb(255 255 255 / 0.16) 0 1.25rem,
+    radial-gradient(circle at 54% 16%, rgb(255 255 255 / 0.55) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 66% 46%, rgb(255 255 255 / 0.45) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 74% 10%, rgb(255 255 255 / 0.5) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 46% 32%, rgb(255 255 255 / 0.35) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 64% 30%, rgb(255 255 255 / 0.16) 0 1.25rem,
       rgb(255 255 255 / 0.05) 1.3rem 2.75rem, transparent 3rem),
     linear-gradient(var(--color-night-shade), var(--color-night-shade)),
     linear-gradient(135deg, var(--tone-a), var(--tone-b));
@@ -724,6 +725,25 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+/* Right column: today's high and low at the top, wind at the bottom. */
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+/* Large text (21.6px, 600), so the 3:1 large-text minimum applies; the worst case,
+   the sun glow's centre on the lightest stop, is 4.0:1. */
+.hero-range {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .hero-wind {
   display: grid;
   margin: 0;
@@ -758,6 +778,10 @@ main {
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
   margin: 0 0 -1px;
   overflow: hidden;
+  /* Hide the last row's bottom rules, so the tiles run straight into the
+     forecast with no line between them. 2px, not 1px: rows can end on a
+     fractional pixel, and a 1px clip leaves an antialiased sliver of the line. */
+  clip-path: inset(0 0 2px 0);
 }
 
 .details > div {
@@ -790,6 +814,27 @@ main {
   color: var(--color-muted);
 }
 
+/* Single-number tiles read a step larger than the composite ones (precipitation,
+   UV), so the headline figure is the first thing seen. */
+.details .detail-big { font-size: var(--text-lg); }
+
+/* Sunset tile: how far through today's daylight the place is. Hidden at night. */
+.details .daylight-track {
+  height: 0.375rem;
+  margin-top: var(--space-1);
+  overflow: hidden;
+  background: var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+.daylight-fill {
+  display: block;
+  width: calc(var(--daylight, 0) * 100%);
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: inherit;
+}
+
 /* Today's UV peak, muted beside the current reading. */
 .details .uv-max {
   font-weight: 400;
@@ -798,7 +843,6 @@ main {
 
 .forecast-section {
   padding: var(--space-4) var(--space-5) var(--space-5);
-  border-top: 1px solid var(--color-border);
 }
 
 .forecast-heading {
@@ -888,6 +932,19 @@ main {
   .details { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); }
 
   .details > div { padding-inline: var(--space-4); }
+
+  /* Full row, so the wind wraps below the temperature instead of beside it. */
+  .hero-side {
+    flex-basis: 100%;
+    align-items: flex-start;
+  }
+
+  /* The high/low keeps its top-right place on a phone; the wind wraps below. */
+  .hero-range {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+  }
 
   .hero-wind { text-align: left; }
 

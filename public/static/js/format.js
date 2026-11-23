@@ -72,6 +72,36 @@ export const formatHour = (timestamp, timeZone) => {
 export const forecastStartIndex = (times, now) =>
   Math.max(0, times.findLastIndex((time) => time <= now));
 
+// "3 h 24 min", "45 min", "2 h"; anything under a minute reads "under a minute".
+export const formatDuration = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 1) return "under a minute";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} min`;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+};
+
+// Where `now` sits in today's daylight (all Unix seconds). `progress` is the share
+// of daylight gone (0..1) while the sun is up, otherwise null. Polar days and
+// missing times give null text, so the page shows "--".
+export const daylightStatus = ({ now, sunrise, sunset, nextSunrise }) => {
+  const valid = (value) => typeof value === "number" && Number.isFinite(value);
+  if (!valid(now) || !valid(sunrise) || !valid(sunset) || sunset <= sunrise) {
+    return { text: null, progress: null };
+  }
+  if (now < sunrise) return { text: `Sunrise in ${formatDuration(sunrise - now)}`, progress: null };
+  if (now < sunset) {
+    return {
+      text: `${formatDuration(sunset - now)} of daylight left`,
+      progress: (now - sunrise) / (sunset - sunrise),
+    };
+  }
+  return valid(nextSunrise) && nextSunrise > now
+    ? { text: `Sunrise in ${formatDuration(nextSunrise - now)}`, progress: null }
+    : { text: "The sun has set", progress: null };
+};
+
 export const formatClock = (value, timeZone) => {
   const date = value instanceof Date
     ? value
