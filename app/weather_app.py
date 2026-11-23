@@ -88,8 +88,6 @@ class AppConfig:
     cache_size: int = 256
     rate_limit: int = 60
     rate_window: int = 60
-    temperature_unit: str = "fahrenheit"
-    wind_speed_unit: str = "mph"
     search_cache_ttl: int = 300
     trust_vercel_client_ip: bool = False
 
@@ -107,12 +105,6 @@ class AppConfig:
         timeout = float(os.environ.get("UPSTREAM_TIMEOUT", "5"))
         if timeout <= 0:
             raise ValueError("UPSTREAM_TIMEOUT must be greater than zero")
-        temperature_unit = os.environ.get("TEMPERATURE_UNIT", "fahrenheit")
-        wind_speed_unit = os.environ.get("WIND_SPEED_UNIT", "mph")
-        if temperature_unit not in {"celsius", "fahrenheit"}:
-            raise ValueError("TEMPERATURE_UNIT must be celsius or fahrenheit")
-        if wind_speed_unit not in {"kmh", "mph", "ms"}:
-            raise ValueError("WIND_SPEED_UNIT must be kmh, mph, or ms")
         trust_vercel = os.environ.get("TRUST_VERCEL_CLIENT_IP")
         if trust_vercel is None:
             # Vercel sets VERCEL=1 in every deployment.
@@ -131,8 +123,6 @@ class AppConfig:
             cache_size=positive_int("WEATHER_CACHE_SIZE", 256),
             rate_limit=positive_int("RATE_LIMIT", 60),
             rate_window=positive_int("RATE_WINDOW", 60),
-            temperature_unit=temperature_unit,
-            wind_speed_unit=wind_speed_unit,
             search_cache_ttl=positive_int("SEARCH_CACHE_TTL", 300),
             trust_vercel_client_ip=trust_vercel.lower() == "true",
         )
@@ -203,7 +193,7 @@ class RateLimiter:
 def _session() -> requests.Session:
     session = requests.Session()
     retry = Retry(
-        total=2,
+        total=1,
         backoff_factor=0.2,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=frozenset({"GET"}),
@@ -453,26 +443,22 @@ def create_app(config: AppConfig | None = None) -> Flask:
         assert latitude is not None and longitude is not None
         if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
             return error_response("search coordinates are invalid", 400)
-        cache_key = (
-            query.casefold(),
-            round(latitude, 2),
-            round(longitude, 2),
-            tuple(sorted(affinity)),
-        )
-        cached = search_cache.get(cache_key, config.search_cache_ttl)
-        if cached is not None:
-            return jsonify({"results": cached})
-        try:
-            response = session.get(
-                config.geocoding_url,
-                params={"name": query, "count": 20, "language": "en", "format": "json"},
-                timeout=min(config.upstream_timeout, 3),
-            )
-            response.raise_for_status()
-            results = validate_search_response(response.json())
-        except (requests.RequestException, ValueError, TypeError, InvalidUpstreamPayload):
-            app.logger.exception("Location search request failed")
-            return error_response("location search unavailable", 502)
+        # The provider's answer depends only on the query; ranking is per visitor.
+        cache_key = (query.casefold(),)
+        results = search_cache.get(cache_key, config.search_cache_ttl)
+        if results is None:
+            try:
+                response = session.get(
+                    config.geocoding_url,
+                    params={"name": query, "count": 20, "language": "en", "format": "json"},
+                    timeout=min(config.upstream_timeout, 3),
+                )
+                response.raise_for_status()
+                results = validate_search_response(response.json())
+            except (requests.RequestException, ValueError, TypeError, InvalidUpstreamPayload):
+                app.logger.exception("Location search request failed")
+                return error_response("location search unavailable", 502)
+            search_cache.set(cache_key, results)
         maximum_population = max(
             (result["population"] for result in results),
             default=0,
@@ -489,7 +475,6 @@ def create_app(config: AppConfig | None = None) -> Flask:
             ),
             reverse=True,
         )
-        search_cache.set(cache_key, ordered)
         return jsonify({"results": ordered})
 
     @app.get("/reverse-location")
@@ -503,6 +488,11 @@ def create_app(config: AppConfig | None = None) -> Flask:
             or not -180 <= longitude <= 180
         ):
             return error_response("valid latitude and longitude are required", 400)
+        # Nominatim's usage policy requires caching; 3 decimals is about 100 m.
+        cache_key = ("reverse", round(latitude, 3), round(longitude, 3))
+        cached = location_cache.get(cache_key, IP_LOCATION_CACHE_TTL)
+        if cached is not None:
+            return jsonify(cached)
         try:
             response = session.get(
                 config.reverse_geocoding_url,
@@ -515,6 +505,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
         except (requests.RequestException, ValueError, TypeError, InvalidUpstreamPayload):
             app.logger.exception("Reverse location request failed")
             return error_response("reverse location unavailable", 502)
+        location_cache.set(cache_key, location_name)
         return jsonify(location_name)
 
     @app.get("/weather")
@@ -549,8 +540,9 @@ def create_app(config: AppConfig | None = None) -> Flask:
                     "forecast_days": 2,
                     "timezone": "auto",
                     "timeformat": "unixtime",
-                    "temperature_unit": config.temperature_unit,
-                    "wind_speed_unit": config.wind_speed_unit,
+                    # The dashboard expects imperial and converts to metric itself.
+                    "temperature_unit": "fahrenheit",
+                    "wind_speed_unit": "mph",
                 },
                 timeout=config.upstream_timeout,
             )

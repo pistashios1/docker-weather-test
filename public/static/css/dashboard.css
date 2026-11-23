@@ -956,3 +956,59 @@ footer a { color: inherit; }
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------------------
+   Print: just the weather, in black on white. No map, marker, glass or
+   controls, and no backgrounds (browsers skip them by default, which would
+   leave the hero's white text invisible).
+   --------------------------------------------------------------------------- */
+@media print {
+  :root {
+    --color-bg: #fff;
+    --color-surface: #fff;
+    --color-surface-sunken: #fff;
+    --color-text: #000;
+    --color-muted: #333;
+    --color-border: #999;
+    --color-glass: #fff;
+    --color-glass-strong: #fff;
+    --color-glass-sheen: transparent;
+    --color-glass-edge: #999;
+    --glass-blur: none;
+    --shadow-glass: none;
+    --shadow-card: none;
+  }
+
+  .map-bg,
+  .search-card,
+  .segmented,
+  .subtitle,
+  .toast,
+  #map-toggle,
+  #retry-button,
+  .noscript-note {
+    display: none !important;
+  }
+
+  body { min-height: 0; }
+
+  main { padding: 0; gap: var(--space-4); }
+
+  .card { break-inside: avoid; }
+
+  .hero {
+    color: inherit;
+    background: none;
+    border-block: 1px solid var(--color-border);
+  }
+
+  /* Show every hour instead of a scroll strip cut off at the page edge. */
+  .forecast {
+    flex-wrap: wrap;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .forecast-card { border-block-end: 1px solid var(--color-border); }
+}

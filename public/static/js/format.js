@@ -47,43 +47,20 @@ export const conditionForCode = (code) => {
     : { label: "Weather", icon: "🌡️", key: "unknown" };
 };
 
-const parseApiLocalTime = (isoTime) => {
-  const match = typeof isoTime === "string"
-    ? isoTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
-    : null;
-  if (!match) return null;
-  return new Date(Date.UTC(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-    Number(match[4]),
-    Number(match[5])
-  ));
-};
-
-const formatApiTime = (isoTime, options) => {
-  if (typeof isoTime === "number") {
-    const date = new Date(isoTime < 1e12 ? isoTime * 1000 : isoTime);
-    return Number.isNaN(date.valueOf())
-      ? "--"
-      : date.toLocaleTimeString(undefined, options);
-  }
-  const localTime = parseApiLocalTime(isoTime);
-  if (localTime) return localTime.toLocaleTimeString(undefined, { ...options, timeZone: "UTC" });
-  const date = new Date(isoTime);
+// The API sends Unix timestamps (seconds, UTC).
+export const formatHour = (timestamp, timeZone) => {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : Number.NaN);
   return Number.isNaN(date.valueOf())
     ? "--"
-    : date.toLocaleTimeString(undefined, options);
+    : date.toLocaleTimeString(undefined, { hour: "numeric", ...(timeZone ? { timeZone } : {}) });
 };
 
-// Unix timestamps are UTC; legacy ISO timestamps are local with no offset.
-export const formatHour = (isoTime, timeZone) =>
-  formatApiTime(isoTime, { hour: "numeric", ...(timeZone ? { timeZone } : {}) });
+// Index of the hour that contains `now`. Open-Meteo's current time moves in
+// 15-minute steps (14:15), so this is the last hour at or before it.
+export const forecastStartIndex = (times, now) =>
+  Math.max(0, times.findLastIndex((time) => time <= now));
 
 export const formatClock = (value, timeZone) => {
-  if (typeof value === "string") {
-    return formatApiTime(value, { hour: "numeric", minute: "2-digit" });
-  }
   const date = value instanceof Date
     ? value
     : new Date(typeof value === "number" && value < 1e12 ? value * 1000 : value);

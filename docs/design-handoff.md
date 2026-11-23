@@ -92,7 +92,7 @@ A new search cancels the previous one. Picking an option fills the field with th
 
 ### Other controls
 
-- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. The first successful lookup is cached as `user-location`; later uses and refreshes reuse it without reopening the permission prompt. Start-up order: a silent IP-based estimate (`/location`, shown with the normal loading skeleton and no extra message); if that fails, the browser permission prompt straight away; if permission is denied or the position is not found, New York plus a dismissible toast saying only "Location permission was denied." (or "Your location could not be found."). Clicking this link goes straight to the permission prompt with the same denial behaviour.
+- **Use my location**: a text link, not a button. No border, underlined, 70% opacity in the text colour (not the blue, which would drop to 3.2:1; the text colour keeps 5.7:1 or better). Full opacity on hover and keyboard focus, and 44px tall. The first successful lookup is cached as `user-location`; later uses and refreshes reuse it without reopening the permission prompt. The last place picked (search or this link) is kept for 30 days as `last-location` and opens first on a return visit. Otherwise the start-up order is: a silent IP-based estimate (`/location`, shown with the normal loading skeleton and no extra message); if that fails, the browser permission prompt straight away; if permission is denied or the position is not found, New York plus a dismissible toast saying only "Location permission was denied." (or "Your location could not be found."). Clicking this link goes straight to the permission prompt with the same denial behaviour.
 - **Unit toggle**: radio group styled as a segmented pill. Remembered in `localStorage` (`weather-units`). Converting is done in the browser from °F and mph.
 - **Animate background**: switch (`role="switch"`) in the footer. Remembered (`weather-map-animation`). Hidden when the system asks for reduced motion.
 
@@ -159,10 +159,10 @@ focus ring is drawn around the whole forecast section.
 - **Missing hourly data**: the forecast shows "Hourly forecast unavailable."
 - **Unknown weather code**: shown as "Weather" with a thermometer icon and a tone gradient.
 - **Rain, humidity and UV** are clamped to zero or more.
-- **Incomplete weather payload**: shows "The weather service returned incomplete data."
 - **Rate limited**: "Too many requests. Try again in N seconds."
 - **Storage blocked or empty**: every `localStorage` call is wrapped, and the page works without it.
 - **No JavaScript**: a notice explains the page needs it.
+- **Printing**: black on white with no backgrounds. The map, marker, glass, search card, unit toggle and animation switch are hidden, and the hourly forecast wraps onto more rows instead of scrolling.
 
 ## Accessibility
 

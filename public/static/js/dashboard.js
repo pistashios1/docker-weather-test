@@ -9,6 +9,7 @@ const [
     formatClock,
     formatCoordinates,
     formatHour,
+    forecastStartIndex,
     mphToKmh,
     numberFormat,
     formatUtcOffset,
@@ -38,6 +39,9 @@ const UNIT_STORAGE_KEY = "weather-units";
 const SEARCH_AFFINITY_KEY = "weather-search-affinity";
 const MAP_STORAGE_KEY = "weather-map-animation";
 const USER_LOCATION_KEY = "user-location";
+// The last place the visitor picked (search or "Use my location"), shown on return visits.
+const LAST_LOCATION_KEY = "last-location";
+const LAST_LOCATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.006, name: "New York" };
 
 const form = $("#weather-form");
@@ -162,20 +166,7 @@ const renderForecast = () => {
   }
 
   const metric = isMetric();
-  const rawCurrentTime = ["number", "string"].includes(typeof lastData.current?.time)
-    ? lastData.current.time
-    : "";
-  const currentIndex = typeof rawCurrentTime === "number"
-    ? Math.max(
-        0,
-        hourly.time.findIndex((time) => Number(time) >= rawCurrentTime)
-      )
-    : rawCurrentTime.length >= 13
-      ? Math.max(
-          0,
-          hourly.time.findIndex((time) => String(time) >= `${rawCurrentTime.slice(0, 13)}:00`)
-        )
-      : 0;
+  const currentIndex = forecastStartIndex(hourly.time, lastData.current.time);
   const times = hourly.time.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
   const temperatures = hourly.temperature_2m.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
   const weatherCodes = hourly.weather_code.slice(currentIndex + 1, currentIndex + FORECAST_HOURS);
@@ -284,18 +275,6 @@ const fetchJson = async (url, signal) => {
   return data;
 };
 
-const isCompleteWeather = (data) => {
-  const current = data && data.current;
-  return Boolean(current) && [
-    "temperature_2m",
-    "wind_speed_10m",
-    "weather_code",
-    "rain",
-    "relative_humidity_2m",
-    "uv_index",
-  ].every((key) => typeof current[key] === "number");
-};
-
 const loadWeather = async () => {
   if (!selectedLocation) {
     setBusy(false);
@@ -320,9 +299,6 @@ const loadWeather = async () => {
       longitude: selectedLocation.longitude,
     });
     const data = await fetchJson(`/weather?${query}`, controller.signal);
-    if (!isCompleteWeather(data)) {
-      throw new Error("The weather service returned incomplete data.");
-    }
 
     lastData = data;
     render();
@@ -421,27 +397,37 @@ const useDefaultLocation = (message) => {
   applyLocation(DEFAULT_LOCATION, false);
 };
 
-const readUserLocation = () => {
+const readSavedLocation = (key, maxAgeMs) => {
   try {
-    const value = JSON.parse(readStorage(USER_LOCATION_KEY) || "null");
+    const value = JSON.parse(readStorage(key) || "null");
     const name = typeof value?.name === "string" ? value.name.trim() : "";
     return value &&
       Number.isFinite(value.latitude) &&
       Number.isFinite(value.longitude) &&
       name &&
       Number.isFinite(value.savedAt) &&
-      Date.now() - value.savedAt < LOCATION_CACHE_TTL_MS &&
-      !["Your location", "Current location", "Location unavailable"].includes(name)
-      ? { ...value, name }
+      Date.now() - value.savedAt < maxAgeMs
+      ? { latitude: value.latitude, longitude: value.longitude, name }
       : null;
   } catch {
     return null;
   }
 };
 
-const rememberUserLocation = (location) => {
-  writeStorage(USER_LOCATION_KEY, JSON.stringify({ ...location, savedAt: Date.now() }));
+const saveLocation = (key, location) => {
+  const { latitude, longitude, name } = location;
+  writeStorage(key, JSON.stringify({ latitude, longitude, name, savedAt: Date.now() }));
 };
+
+const readUserLocation = () => {
+  const location = readSavedLocation(USER_LOCATION_KEY, LOCATION_CACHE_TTL_MS);
+  return location &&
+    !["Your location", "Current location", "Location unavailable"].includes(location.name)
+    ? location
+    : null;
+};
+
+const rememberUserLocation = (location) => saveLocation(USER_LOCATION_KEY, location);
 
 const sameLocation = (left, right) =>
   left &&
@@ -481,6 +467,7 @@ const resolveBrowserLocation = async ({ coords }, attempt) => {
   const location = { latitude: coords.latitude, longitude: coords.longitude, name };
   rememberUserLocation(location);
   if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
+  saveLocation(LAST_LOCATION_KEY, location);
   applyLocation(location, false);
 };
 
@@ -556,6 +543,7 @@ const searchBox = createSearchBox({
   },
   onSelect: (location) => {
     rememberSearchAffinity(location.name);
+    saveLocation(LAST_LOCATION_KEY, location);
     applyLocation(location);
   },
 });
@@ -606,4 +594,8 @@ if (storedUnits === "metric" || storedUnits === "imperial") {
 }
 setMapAnimation(readStorage(MAP_STORAGE_KEY) !== "off");
 
-if (!useCachedUserLocation()) useApproximateLocation();
+// A returning visitor sees the place they last picked; the IP estimate and the
+// permission prompt are only for first visits (or after 30 days).
+const lastLocation = readSavedLocation(LAST_LOCATION_KEY, LAST_LOCATION_TTL_MS);
+if (lastLocation) applyLocation(lastLocation, false);
+else if (!useCachedUserLocation()) useApproximateLocation();

@@ -57,3 +57,46 @@ test("local time ticks in the browser without another weather request", async ({
   expect(weatherRequests).toBe(1);
   await expect(page.locator("#utc-offset")).not.toHaveText("UTC --");
 });
+
+const saveLastLocation = (page, savedAt) => page.addInitScript((time) => {
+  localStorage.setItem("last-location", JSON.stringify({
+    latitude: 35.68, longitude: 139.69, name: "Tokyo, Japan", savedAt: time,
+  }));
+}, savedAt);
+
+test("a returning visitor sees their last place without an IP lookup", async ({ page }) => {
+  await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+  let ipLookups = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/location") ipLookups += 1;
+  });
+  await saveLastLocation(page, Date.now());
+  await page.goto("/");
+  await expect(page.locator("#location-name")).toHaveText("Tokyo, Japan");
+  expect(ipLookups).toBe(0);
+});
+
+test("a last place older than 30 days is ignored", async ({ page }) => {
+  await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+  await saveLastLocation(page, Date.now() - 31 * 24 * 60 * 60 * 1000);
+  await page.goto("/");
+  await expect(page.locator("#location-name")).toHaveText("London, England");
+});
+
+test("picking a search result is remembered for the next visit", async ({ page }) => {
+  await mockApi(page, { location: { latitude: 51.5, longitude: -0.12, name: "London, England" } });
+  await page.route("**/search?**", (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ results: [
+      { name: "Oslo", context: "Norway", latitude: 59.91, longitude: 10.75, population: 1 },
+    ] }),
+  }));
+  await page.goto("/");
+  await expect(page.locator("#location-name")).toHaveText("London, England");
+  await page.locator("#location-search").fill("Oslo");
+  await page.locator("#search-option-0").click();
+  await expect(page.locator("#location-name")).toHaveText("Oslo");
+
+  await page.reload();
+  await expect(page.locator("#location-name")).toHaveText("Oslo");
+});
