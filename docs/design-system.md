@@ -62,12 +62,13 @@ the same tone:
 
 | | Day | Night |
 | --- | --- | --- |
-| Layers | sun glow (12 % white, top right) over the tone | 4 faint stars and a moon (16 % white disc, 5 % halo) over `--color-night-shade` over the tone |
+| Layers | sun glow (12 % white, top right, behind the high/low) over the tone | 4 faint stars and a moon (16 % white disc, 5 % halo, at 64 % / 30 %, clear of the high/low) over `--color-night-shade` over the tone |
 | Worst white-text contrast, at the glow or moon centre | 4.0:1 (warm `#a65f06`, cool `#237b82`) | 5.9:1 |
 
-The day glow's centre is below 4.5:1 on the two lightest stops. Text doesn't
-sit there in practice (the label is top left, the wind is bottom right), but
-don't move text into the top-right corner. A missing `is_day` keeps the day look.
+The day glow's centre is below 4.5:1 on the two lightest stops. The only text in
+the top-right corner is the high/low (`.hero-range`). It is large text
+(`--text-lg`, 600, so 21.6 px bold), which needs 3:1, and 4.0:1 clears that. Keep
+small text out of that corner. A missing `is_day` keeps the day look.
 
 ### Type
 
@@ -76,7 +77,7 @@ don't move text into the top-right corner. A missing `is_day` keeps the day look
 | `--text-xs` | 0.75rem | Forecast condition captions |
 | `--text-sm` | 0.9rem | Labels, meta, small controls, detail sub-lines, feels-like line |
 | `--text-md` | 1.15rem | Condition, detail values, forecast temperature, forecast heading |
-| `--text-lg` | 1.35rem | Location name |
+| `--text-lg` | 1.35rem | Location name, hero high/low, single-number detail values (`.detail-big`) |
 | `--text-xl` | 1.5rem | Wind value |
 
 Weights: 400 (body and detail sub-lines), 600 (headings, condition, detail
@@ -132,8 +133,9 @@ again; the floor is 4.5:1.
 | Search combobox | `.search-input`, `.search-popup`, `.search-option` | one | closed, recent places, searching (keeps old results), results with matched-text underline and distance, no matches, error |
 | Card | `.card` | search, result | n/a |
 | Result panel | `#panel[data-state]` | empty, locating, loading, error, ready | five states |
-| Hero | `.hero` | tone × condition × day/night | n/a |
-| Details grid | `.details` | 7 tiles, plus Snowfall when snow is falling or expected today | value, sub-line (`.detail-sub`), hidden rows, `--` for a missing value |
+| Hero | `.hero`, `.hero-side`, `.hero-range` | tone × condition × day/night | high/low top right ("H: 66°, L: 48°"), wind bottom right; on narrow the high/low stays in the corner and the wind wraps below |
+| Details grid | `.details` | 8 tiles, plus Snowfall when snow is falling or expected today | value (`--text-md`, or `.detail-big` at `--text-lg` for single numbers), sub-line (`.detail-sub`), hidden rows, `--` for a missing value; no rule between the grid and the forecast (last-row lines clipped) |
+| Daylight bar | `.daylight-track`, `.daylight-fill` | one | shown while the sun is up, filled to the share of daylight gone (`--daylight`, 0–1); hidden before sunrise, after sunset and when times are missing |
 | Forecast card | `.forecast-card` | one | n/a |
 | Forecast edge fade | `.forecast[data-fade-start]`, `[data-fade-end]` | one | start, middle, end of the scroll; absent when nothing overflows |
 | Toast | `.toast`, `#toast` | one | shown, dismissed (button or after 8 s); close button hover |
@@ -164,6 +166,10 @@ again; the floor is 4.5:1.
   `dd`s. Hidden rows use the `hidden` attribute, so they are skipped by screen
   readers too. The wind arrow is `aria-hidden`; the direction is read from the
   text ("from SW").
+- **Hero high/low:** the "H:" and "L:" letters are `aria-hidden`, and visually
+  hidden "High" / "Low" words stand in, so it reads "High 66°, Low 48°".
+- **Daylight bar:** `aria-hidden`; the sub-line ("4 h 30 min of daylight left")
+  carries the same information as text.
 
 ## Print
 

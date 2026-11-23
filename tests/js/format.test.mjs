@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
-  compassPoint, forecastStartIndex, formatHour, formatUtcOffset, hpaToInHg,
+  compassPoint, daylightStatus, forecastStartIndex, formatDuration, formatHour,
+  formatUtcOffset, hpaToInHg,
   metresToDistance, mphToKmh, toneForFahrenheit, uvCategory,
 } from "../../public/static/js/format.js";
 
@@ -87,4 +88,27 @@ test("uvCategory follows the WHO bands, which use whole numbers", () => {
     [0, 2.4, 2.6, 5.4, 5.6, 7.4, 7.6, 10.4, 10.6].map(uvCategory),
     ["Low", "Low", "Moderate", "Moderate", "High", "High", "Very high", "Very high", "Extreme"],
   );
+});
+
+test("formatDuration reads as hours and minutes", () => {
+  assert.equal(formatDuration(30), "under a minute");
+  assert.equal(formatDuration(45 * 60), "45 min");
+  assert.equal(formatDuration(2 * 3600), "2 h");
+  assert.equal(formatDuration(3 * 3600 + 24 * 60 + 59), "3 h 24 min");
+});
+
+test("daylightStatus follows the sun through the day", () => {
+  const day = { sunrise: 1000, sunset: 1000 + 10 * 3600, nextSunrise: 1000 + 24 * 3600 };
+
+  assert.deepEqual(daylightStatus({ ...day, now: 1000 - 3600 }), { text: "Sunrise in 1 h", progress: null });
+  const midday = daylightStatus({ ...day, now: 1000 + 5 * 3600 });
+  assert.equal(midday.text, "5 h of daylight left");
+  assert.equal(midday.progress, 0.5);
+  assert.equal(daylightStatus({ ...day, now: day.sunset + 60 }).text, "Sunrise in 13 h 59 min");
+  assert.equal(daylightStatus({ ...day, nextSunrise: null, now: day.sunset }).text, "The sun has set");
+});
+
+test("daylightStatus gives no text for polar days or missing times", () => {
+  assert.deepEqual(daylightStatus({ now: 5, sunrise: 10, sunset: 10 }), { text: null, progress: null });
+  assert.deepEqual(daylightStatus({ now: 5, sunrise: null, sunset: 10 }), { text: null, progress: null });
 });
