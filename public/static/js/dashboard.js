@@ -13,6 +13,10 @@ const [
     mphToKmh,
     numberFormat,
     formatUtcOffset,
+    compassPoint,
+    hpaToInHg,
+    metresToDistance,
+    uvCategory,
     toneForFahrenheit,
   },
   { createSearchBox },
@@ -36,7 +40,6 @@ const LOCATION_CACHE_TTL_MS = 15 * 60 * 1000;
 const LOCATION_PROMPT_TIMEOUT_MS = 8000;
 const FORECAST_HOURS = 12;
 const UNIT_STORAGE_KEY = "weather-units";
-const SEARCH_AFFINITY_KEY = "weather-search-affinity";
 const MAP_STORAGE_KEY = "weather-map-animation";
 const USER_LOCATION_KEY = "user-location";
 // The last place the visitor picked (search or "Use my location"), shown on return visits.
@@ -78,6 +81,7 @@ forecast.addEventListener(
 
 let lastData = null; // Latest /weather payload (imperial units)
 let selectedLocation = null;
+let shownLocation = null; // The place lastData belongs to (selectedLocation can be newer)
 let activeRequest = null; // AbortController of the in-flight weather request
 let busy = false;
 let locationAttempt = 0; // Bumped whenever a newer location choice supersedes a pending one
@@ -90,27 +94,43 @@ const currentUnits = () => document.querySelector('input[name="units"]:checked')
 const isMetric = () => currentUnits() === "metric";
 
 // The numbers shown in the details row (wind is shown in the hero).
-const detailMetrics = [
-  { id: "precipitation", value: (current) => Math.max(0, current.rain), digits: 1 },
-  { id: "humidity", value: (current) => Math.max(0, current.relative_humidity_2m), digits: 0 },
-  { id: "uv-index", value: (current) => Math.max(0, current.uv_index), digits: 1 },
-];
+// Optional values can be missing or null upstream; show "--" for just that one.
+const isNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const formatOr = (value, digits, suffix = "") =>
+  isNumber(value) ? `${numberFormat(digits).format(value)}${suffix}` : "--";
 
-/* ---------- Search history (used to rank search results) ---------- */
+/* ---------- Recent places (shown in the empty search, and used to rank results) ---------- */
 
-const readSearchAffinity = () => {
+const RECENT_PLACES_KEY = "recent-places";
+const RECENT_PLACES_LIMIT = 5;
+
+const readRecentPlaces = () => {
   try {
-    const value = JSON.parse(readStorage(SEARCH_AFFINITY_KEY) || "[]");
-    return Array.isArray(value) ? value.filter((item) => typeof item === "string").slice(0, 10) : [];
+    const value = JSON.parse(readStorage(RECENT_PLACES_KEY) || "[]");
+    return Array.isArray(value)
+      ? value
+          .filter((place) =>
+            typeof place?.name === "string" &&
+            Number.isFinite(place.latitude) &&
+            Number.isFinite(place.longitude))
+          .map(({ name, context, latitude, longitude }) =>
+            ({ name, context: typeof context === "string" ? context : "", latitude, longitude }))
+          .slice(0, RECENT_PLACES_LIMIT)
+      : [];
   } catch {
     return [];
   }
 };
 
-const rememberSearchAffinity = (name) => {
-  const names = [name, ...readSearchAffinity().filter((item) => item !== name)].slice(0, 10);
-  writeStorage(SEARCH_AFFINITY_KEY, JSON.stringify(names));
+const rememberRecentPlace = ({ name, context = "", latitude, longitude }) => {
+  const places = [
+    { name, context, latitude, longitude },
+    ...readRecentPlaces().filter((place) => !(place.name === name && place.context === context)),
+  ].slice(0, RECENT_PLACES_LIMIT);
+  writeStorage(RECENT_PLACES_KEY, JSON.stringify(places));
 };
+
+const recentNames = () => readRecentPlaces().map((place) => place.name);
 
 /* ---------- UI state ---------- */
 
@@ -224,13 +244,84 @@ const render = () => {
   $("#temperature-unit").textContent = metric ? "°C" : "°F";
   $("#wind").textContent = numberFormat(1).format(wind);
   $("#wind-unit").textContent = metric ? "km/h" : "mph";
-  detailMetrics.forEach(({ id, value, digits }) => {
-    document.getElementById(id).textContent = numberFormat(digits).format(value(current));
-  });
+  renderWindDirection(current.wind_direction_10m);
+  renderDetails(metric);
 
   panel.dataset.tone = toneForFahrenheit(current.temperature_2m);
   panel.dataset.condition = condition.key;
+  // Open-Meteo's is_day is 1 or 0; a missing value keeps the day look.
+  panel.dataset.daylight = current.is_day === 0 ? "night" : "day";
   renderForecast();
+};
+
+const renderWindDirection = (degrees) => {
+  const arrow = $("#wind-arrow");
+  arrow.hidden = !isNumber(degrees);
+  $("#wind-direction").textContent = isNumber(degrees) ? `from ${compassPoint(degrees)}` : "--";
+  // The arrow points the way the wind blows, opposite to where it comes from.
+  if (isNumber(degrees)) arrow.style.setProperty("--wind-rotate", `${degrees + 180}deg`);
+};
+
+const renderDetails = (metric) => {
+  const { current, daily } = lastData;
+  // Today's row of the daily summaries: the last day starting at or before now.
+  const day = daily && Array.isArray(daily.time)
+    ? forecastStartIndex(daily.time, current.time)
+    : -1;
+  const today = (field) => (day >= 0 && Array.isArray(daily[field]) ? daily[field][day] : null);
+  const degrees = (fahrenheit) =>
+    isNumber(fahrenheit) ? formatOr(metric ? fahrenheitToCelsius(fahrenheit) : fahrenheit, 0, "°") : "--";
+  const clamp = (value) => (isNumber(value) ? Math.max(0, value) : value);
+
+  $("#feels-like").textContent = degrees(current.apparent_temperature);
+  $("#temp-high").textContent = degrees(today("temperature_2m_max"));
+  $("#temp-low").textContent = degrees(today("temperature_2m_min"));
+
+  $("#precip-chance").textContent = formatOr(clamp(today("precipitation_probability_max")), 0, "% chance");
+  $("#precip-total").textContent = isNumber(today("precipitation_sum"))
+    ? `${formatOr(clamp(today("precipitation_sum")), 1, " mm")} today`
+    : "--";
+  const rainNow = clamp(current.rain);
+  $("#rain-now").hidden = !(rainNow > 0);
+  $("#rain-now").textContent = rainNow > 0 ? `Raining now: ${formatOr(rainNow, 1, " mm")}` : "";
+
+  // Shown only when snow is falling now or expected today.
+  const snowToday = clamp(today("snowfall_sum"));
+  const snowNow = clamp(current.snowfall);
+  $("#snow-row").hidden = !(snowToday > 0 || snowNow > 0);
+  $("#snowfall").textContent = snowToday > 0
+    ? `${formatOr(snowToday, 1, " cm")} today`
+    : `${formatOr(snowNow, 1, " cm")} now`;
+
+  $("#humidity").textContent = formatOr(clamp(current.relative_humidity_2m), 0, "%");
+  $("#dew-point").textContent = degrees(current.dew_point_2m);
+  $("#pressure").textContent = isNumber(current.pressure_msl)
+    ? metric
+      ? formatOr(current.pressure_msl, 0, " hPa")
+      : formatOr(hpaToInHg(current.pressure_msl), 2, " inHg")
+    : "--";
+  const distance = isNumber(current.visibility)
+    ? metresToDistance(Math.max(0, current.visibility), metric)
+    : null;
+  $("#visibility").textContent = formatOr(distance, distance >= 10 ? 0 : 1, metric ? " km" : " mi");
+  // "3.1 / 4.2": the current reading is the headline, today's peak is muted beside it.
+  const uvNow = clamp(current.uv_index);
+  const uvMax = clamp(today("uv_index_max"));
+  const uvMaxPart = document.createElement("span");
+  uvMaxPart.className = "uv-max";
+  uvMaxPart.textContent = ` / ${formatOr(uvMax, 1)}`;
+  const uvSpoken = document.createElement("span");
+  uvSpoken.className = "visually-hidden";
+  uvSpoken.textContent = " (now, of today's max)";
+  $("#uv-index").replaceChildren(formatOr(uvNow, 1), uvMaxPart, uvSpoken);
+  $("#uv-level").textContent = isNumber(uvNow)
+    ? `Now / today's max · ${uvCategory(uvNow)}`
+    : "Now / today's max";
+
+  const sunrise = today("sunrise");
+  const sunset = today("sunset");
+  $("#sunrise").textContent = isNumber(sunrise) ? `Sunrise ${formatClock(sunrise, lastData.timezone)}` : "--";
+  $("#sunset").textContent = isNumber(sunset) ? `Sunset ${formatClock(sunset, lastData.timezone)}` : "--";
 };
 
 const stopLocalTimeClock = () => {
@@ -301,6 +392,7 @@ const loadWeather = async () => {
     const data = await fetchJson(`/weather?${query}`, controller.signal);
 
     lastData = data;
+    shownLocation = selectedLocation;
     render();
     mapMarker.setCoordinates(data.latitude, data.longitude);
     setState("ready");
@@ -329,10 +421,9 @@ const loadWeather = async () => {
 
 /* ---------- Location ---------- */
 
-const applyLocation = (location, updateSearchField = true) => {
+const applyLocation = (location) => {
   locationAttempt += 1;
   selectedLocation = location;
-  if (updateSearchField) searchInput.value = location.name;
   loadWeather();
 };
 
@@ -366,35 +457,61 @@ const MESSAGE_UNAVAILABLE = "Your location could not be found.";
 //   2. If that fails, ask the browser for permission straight away.
 //   3. If permission is denied (or the position can't be found), show New York.
 // "Use my location" goes straight to the browser's permission prompt.
-const useApproximateLocation = async () => {
-  const attempt = locationAttempt;
-  setBusy(true);
-  setState("loading");
+// The IP estimate from this visit, so a refused "Use my location" can fall back to it.
+let approximateLocation = null;
+let approximateLookupFailed = false;
 
+const fetchApproximateLocation = async () => {
+  if (approximateLocation || approximateLookupFailed) return approximateLocation;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS);
-  let location = null;
   try {
     const data = await fetchJson("/location", controller.signal);
     if (Number.isFinite(data.latitude) && Number.isFinite(data.longitude)) {
       const name = typeof data.name === "string" ? data.name.trim() : "";
-      location = { latitude: data.latitude, longitude: data.longitude, name: name || "Your area" };
+      approximateLocation = { latitude: data.latitude, longitude: data.longitude, name: name || "Your area" };
     }
   } catch {
-    // Unavailable (private address, provider down, slow): ask the browser instead.
+    // Unavailable (private address, provider down, slow).
   } finally {
     clearTimeout(timer);
   }
-
-  if (attempt !== locationAttempt) return; // The visitor chose a place meanwhile.
-  if (location) applyLocation(location, false);
-  else requestPreciseLocation();
+  approximateLookupFailed = !approximateLocation;
+  return approximateLocation;
 };
 
-// The precise lookup failed or was refused: show New York and say why.
-const useDefaultLocation = (message) => {
+const useApproximateLocation = async () => {
+  const attempt = locationAttempt;
+  setBusy(true);
+  setState("loading");
+  const location = await fetchApproximateLocation();
+  if (attempt !== locationAttempt) return; // The visitor chose a place meanwhile.
+  if (location) applyLocation(location);
+  else requestPreciseLocation(); // No estimate: ask the browser instead.
+};
+
+// Show the weather that is already loaded again (after the "locating" state).
+const showCurrentWeather = () => {
+  setBusy(false);
+  setState("ready");
+  startLocalTimeClock();
+  announce(`Showing weather for ${selectedLocation.name}.`);
+};
+
+// The precise lookup failed or was refused. Say why, then keep the place already
+// on screen (usually the IP estimate); with nothing on screen use the IP
+// estimate, and only when that is unavailable too, New York.
+const useFallbackLocation = async (message, attempt) => {
   showToast(message);
-  applyLocation(DEFAULT_LOCATION, false);
+  if (shownLocation && lastData) {
+    // The weather on screen may be for an earlier place if a newer load failed.
+    selectedLocation = shownLocation;
+    showCurrentWeather();
+    return;
+  }
+  const location = await fetchApproximateLocation();
+  if (attempt !== locationAttempt) return;
+  applyLocation(location || DEFAULT_LOCATION);
 };
 
 const readSavedLocation = (key, maxAgeMs) => {
@@ -440,14 +557,11 @@ const useCachedUserLocation = () => {
   if (!location) return false;
 
   if (sameLocation(selectedLocation, location) && lastData) {
-    setBusy(false);
-    setState("ready");
-    startLocalTimeClock();
-    announce(`Showing weather for ${location.name}.`);
+    showCurrentWeather();
     return true;
   }
 
-  applyLocation(location, false);
+  applyLocation(location);
   return true;
 };
 
@@ -468,7 +582,7 @@ const resolveBrowserLocation = async ({ coords }, attempt) => {
   rememberUserLocation(location);
   if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
   saveLocation(LAST_LOCATION_KEY, location);
-  applyLocation(location, false);
+  applyLocation(location);
 };
 
 const requestPreciseLocation = () => {
@@ -477,7 +591,7 @@ const requestPreciseLocation = () => {
   setState("locating");
 
   if (!navigator.geolocation) {
-    useDefaultLocation(MESSAGE_UNAVAILABLE);
+    useFallbackLocation(MESSAGE_UNAVAILABLE, attempt);
     return;
   }
 
@@ -493,8 +607,8 @@ const requestPreciseLocation = () => {
     if (attempt !== locationAttempt) return;
     handler(...args, attempt);
   };
-  const fail = (error) =>
-    useDefaultLocation(error && error.code === 1 ? MESSAGE_DENIED : MESSAGE_UNAVAILABLE);
+  const fail = (error, failedAttempt) =>
+    useFallbackLocation(error && error.code === 1 ? MESSAGE_DENIED : MESSAGE_UNAVAILABLE, failedAttempt);
   const promptTimer = setTimeout(settle(fail), LOCATION_PROMPT_TIMEOUT_MS);
 
   navigator.geolocation.getCurrentPosition(settle(resolveBrowserLocation), settle(fail), {
@@ -514,7 +628,7 @@ const useMyLocation = () => {
 const refreshWeather = () => {
   const location = readUserLocation();
   if (location && !sameLocation(selectedLocation, location)) {
-    applyLocation(location, false);
+    applyLocation(location);
   } else {
     loadWeather();
   }
@@ -522,27 +636,36 @@ const refreshWeather = () => {
 
 /* ---------- Search ---------- */
 
+// "5,837 km" or "3,627 mi", following the unit toggle.
+const describeDistance = (kilometres) => {
+  if (!isNumber(kilometres)) return "";
+  const value = isMetric() ? kilometres : kilometres / 1.609344;
+  return value < 1 ? "Nearby" : `${numberFormat(0).format(value)} ${isMetric() ? "km" : "mi"}`;
+};
+
 const searchBox = createSearchBox({
   input: searchInput,
   popup: $("#search-popup"),
   message: $("#search-message"),
   list: $("#search-results"),
   announce,
+  recentPlaces: readRecentPlaces,
+  describeDistance,
   cacheContext: () =>
-    `${selectedLocation?.latitude ?? ""},${selectedLocation?.longitude ?? ""}|${readSearchAffinity().join(",")}`,
+    `${selectedLocation?.latitude ?? ""},${selectedLocation?.longitude ?? ""}|${recentNames().join(",")}`,
   search: async (query, signal) => {
     const origin = selectedLocation || DEFAULT_LOCATION;
     const params = new URLSearchParams({
       q: query,
       latitude: origin.latitude,
       longitude: origin.longitude,
-      affinity: readSearchAffinity().join(","),
+      affinity: recentNames().join(","),
     });
     const data = await fetchJson(`/search?${params}`, signal);
     return data.results || [];
   },
   onSelect: (location) => {
-    rememberSearchAffinity(location.name);
+    rememberRecentPlace(location);
     saveLocation(LAST_LOCATION_KEY, location);
     applyLocation(location);
   },
@@ -552,7 +675,7 @@ const searchBox = createSearchBox({
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  searchBox.run();
+  searchBox.submit();
 });
 
 locationButton.addEventListener("click", () => {
@@ -597,5 +720,5 @@ setMapAnimation(readStorage(MAP_STORAGE_KEY) !== "off");
 // A returning visitor sees the place they last picked; the IP estimate and the
 // permission prompt are only for first visits (or after 30 days).
 const lastLocation = readSavedLocation(LAST_LOCATION_KEY, LAST_LOCATION_TTL_MS);
-if (lastLocation) applyLocation(lastLocation, false);
+if (lastLocation) applyLocation(lastLocation);
 else if (!useCachedUserLocation()) useApproximateLocation();

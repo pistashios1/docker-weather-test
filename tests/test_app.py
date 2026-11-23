@@ -127,6 +127,7 @@ def test_search_returns_comprehensive_location_results():
                 "longitude": 2.3522,
                 "admin1": "Ile-de-France",
                 "country": "France",
+                "country_code": "FR",
             }
         ]
     }
@@ -143,6 +144,8 @@ def test_search_returns_comprehensive_location_results():
                 "latitude": 48.8566,
                 "longitude": 2.3522,
                 "population": 0.0,
+                "country_code": "FR",
+                "distance_km": 5837,  # from the default origin, New York
             }
         ]
     }
@@ -238,6 +241,10 @@ def test_weather_returns_current_conditions():
     assert result.get_json()["timezone"] == "America/New_York"
     get.assert_called_once()
     upstream_params = get.call_args.kwargs["params"]
+    assert "is_day" in upstream_params["current"]
+    assert "uv_index" in upstream_params["current"].split(",")
+    assert "uv_index_max" in upstream_params["daily"].split(",")
+    assert "precipitation_probability_max" in upstream_params["daily"].split(",")
     assert upstream_params["timezone"] == "auto"
     assert upstream_params["timeformat"] == "unixtime"
 
@@ -627,7 +634,7 @@ def _dashboard_script():
 def test_startup_tries_the_ip_lookup_before_asking_for_permission():
     script = _dashboard_script()
     start = script[script.index("/* ---------- Start ---------- */"):]
-    lookup = script[script.index("const useApproximateLocation"):script.index("// The precise lookup failed")]
+    lookup = script[script.index("const useApproximateLocation"):script.index("// Show the weather that is already loaded")]
 
     assert "useApproximateLocation()" in start
     assert "getCurrentPosition" not in start
@@ -640,12 +647,15 @@ def test_startup_tries_the_ip_lookup_before_asking_for_permission():
     assert "announce(" not in lookup  # the IP lookup itself stays silent
 
 
-def test_denied_permission_shows_new_york_with_only_a_denial_message():
+def test_denied_permission_falls_back_with_only_a_denial_message():
     script = _dashboard_script()
 
     assert 'const MESSAGE_DENIED = "Location permission was denied.";' in script
-    assert "useDefaultLocation(error && error.code === 1 ? MESSAGE_DENIED" in script
-    assert "applyLocation(DEFAULT_LOCATION, false)" in script
+    assert "useFallbackLocation(error && error.code === 1 ? MESSAGE_DENIED" in script
+    # Keep the place on screen, else the IP estimate, else New York (see the e2e tests).
+    fallback = script[script.index("const useFallbackLocation"):script.index("const readSavedLocation")]
+    assert fallback.index("shownLocation && lastData") < fallback.index("fetchApproximateLocation()")
+    assert "applyLocation(location || DEFAULT_LOCATION)" in fallback
     assert "Still showing" not in script
 
 
@@ -777,3 +787,97 @@ def test_reverse_location_is_cached_for_nearby_coordinates():
 
     get.assert_called_once()
     assert first.get_json() == second.get_json() == {"name": "Paris, France"}
+
+
+def _search_with(places, query, **params):
+    response = Mock()
+    response.json.return_value = {"results": places}
+    with patch("app.weather_app.requests.Session.get", return_value=response) as get:
+        result = app.test_client().get("/search", query_string={"q": query, **params})
+    return result.get_json()["results"], get
+
+
+def _city(name, latitude, longitude, population, admin1="", country="", country_code=""):
+    return {"name": name, "latitude": latitude, "longitude": longitude, "population": population,
+            "admin1": admin1, "country": country, "country_code": country_code}
+
+
+def test_search_ranks_every_upstream_match_not_just_the_first_ten():
+    # The exact match arrives 15th from the provider; it must still come first.
+    places = [_city(f"Springfield Heights {i}", 40, -74, 100) for i in range(14)]
+    places.append(_city("Springfield", 39.8, -89.65, 114000, "Illinois", "United States", "US"))
+
+    results, _ = _search_with(places, "Springfield")
+
+    assert results[0]["name"] == "Springfield"
+    assert len(results) == 10
+
+
+def test_search_matches_names_without_accents():
+    places = [
+        _city("Saopolis", -23.5, -46.6, 5_000_000),
+        _city("São Paulo", -23.55, -46.63, 12_000_000, "São Paulo", "Brazil", "BR"),
+    ]
+
+    results, _ = _search_with(places, "sao paulo")
+
+    assert results[0]["name"] == "São Paulo"
+
+
+def test_search_text_after_a_comma_narrows_by_region_or_country():
+    places = [
+        _city("Paris", 48.85, 2.35, 2_100_000, "Ile-de-France", "France", "FR"),
+        _city("Paris", 33.66, -95.56, 25_000, "Texas", "United States", "US"),
+    ]
+
+    texas, get = _search_with(places, "Paris, Texas")
+    by_code, _ = _search_with(places, "paris, us")
+
+    assert [r["context"] for r in texas] == ["Texas, United States"]
+    assert [r["context"] for r in by_code] == ["Texas, United States"]
+    assert get.call_args.kwargs["params"]["name"] == "Paris"  # only the name goes upstream
+
+
+def test_search_ignores_a_qualifier_that_matches_nothing():
+    places = [_city("Paris", 48.85, 2.35, 2_100_000, "Ile-de-France", "France", "FR")]
+
+    results, _ = _search_with(places, "Paris, Atlantis")
+
+    assert [r["name"] for r in results] == ["Paris"]
+
+
+def test_search_drops_duplicate_places_and_adds_a_distance():
+    places = [
+        _city("Oslo", 59.91, 10.75, 580_000, "Oslo", "Norway", "NO"),
+        _city("Oslo", 59.92, 10.74, 0, "Oslo", "Norway", "NO"),
+    ]
+
+    results, _ = _search_with(places, "Oslo", latitude=59.91, longitude=10.75)
+
+    assert len(results) == 1
+    assert results[0]["distance_km"] == 0
+
+
+def test_search_qualifier_matches_word_starts_not_any_substring():
+    places = [
+        _city("Moscow", 55.75, 37.62, 12_000_000, "Moscow", "Russia", "RU"),
+        _city("Moscow", 46.73, -117.0, 25_000, "Idaho", "United States", "US"),
+    ]
+
+    us, _ = _search_with(places, "Moscow, us")
+    unit, _ = _search_with(places, "Moscow, unit")
+
+    assert [r["context"] for r in us] == ["Idaho, United States"]  # not "Russia"
+    assert [r["context"] for r in unit] == ["Idaho, United States"]
+
+
+def test_search_every_part_after_a_comma_must_match():
+    places = [
+        _city("Springfield", 39.8, -89.65, 114_000, "Illinois", "United States", "US"),
+        _city("Springfield", 37.2, -93.3, 169_000, "Missouri", "United States", "US"),
+    ]
+
+    results, get = _search_with(places, "Springfield, Illinois, US")
+
+    assert [r["context"] for r in results] == ["Illinois, United States"]
+    assert get.call_args.kwargs["params"]["name"] == "Springfield"

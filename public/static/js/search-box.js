@@ -1,17 +1,40 @@
 // Accessible location search: an ARIA 1.2 combobox with a listbox popup.
 //
-// Keyboard: ArrowDown/ArrowUp move through suggestions, Enter picks the
-// highlighted one or the first result, Escape closes.
-// Focus stays in the text field; the highlighted option is exposed to
-// assistive technology through aria-activedescendant.
+// Typing searches after a short pause. A place is picked only by a deliberate
+// action: clicking or tapping an option, Enter, or the Search button. Pressing
+// or tapping anywhere else closes the list without picking anything.
+//
+// Keyboard: ArrowDown/ArrowUp move through options, Enter picks the highlighted
+// option (or the best match), Escape closes the list (and clears the field if
+// it is already closed). Focus stays in the field; the highlighted option is
+// exposed through aria-activedescendant.
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
-const SEARCH_CACHE_SIZE = 3;
-const SEARCH_LIMIT = 10;
-const SEARCH_WINDOW_MS = 5000;
-const LOCKOUT_STEP_MS = 2000;
-const MAX_LOCKOUT_MS = 60000;
+const CACHE_SIZE = 5;
+
+// Lower-case, accent-free form of one character, so "sao" highlights "São".
+const foldChar = (char) => char.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+
+// The part of `name` that matches `query`, ignoring case and accents.
+export const findMatch = (name, query) => {
+  const wanted = [...query.trim()].map(foldChar).join("");
+  if (!wanted) return null;
+  let folded = "";
+  const starts = []; // folded index -> original index
+  [...name].forEach((char, index) => {
+    for (const part of foldChar(char)) {
+      starts.push(index);
+      folded += part;
+    }
+  });
+  const at = folded.indexOf(wanted);
+  if (at < 0) return null;
+  const chars = [...name];
+  const start = starts[at];
+  const end = starts[at + wanted.length - 1] + 1;
+  return [chars.slice(0, start).join(""), chars.slice(start, end).join(""), chars.slice(end).join("")];
+};
 
 export function createSearchBox({
   input,
@@ -21,38 +44,22 @@ export function createSearchBox({
   search,
   onSelect,
   announce,
+  recentPlaces = () => [],
+  describeDistance = () => "",
   cacheContext = () => "",
 }) {
-  let results = [];
+  let items = [];        // places currently listed
+  let itemsQuery = null; // the query they answer; null for recent places
   let activeIndex = -1;
   let debounceTimer = null;
   let controller = null;
-  let cachedResults = [];
-  let searchTimestamps = [];
-  let lockoutCount = 0;
-  let lockoutUntil = 0;
-  let replaceOnNextInput = false;
+  let pickWhenReady = false; // Enter or Search was pressed before results arrived
+  let lastPointer = "mouse";
+  let cache = [];
 
   const isOpen = () => !popup.hidden;
-  const normalizeQuery = (query) => query.trim().toLocaleLowerCase();
-  const cachedResultsFor = (query) => {
-    const normalizedQuery = normalizeQuery(query);
-    const context = cacheContext();
-    return cachedResults.find(
-      (entry) => entry.query === normalizedQuery && entry.context === context
-    )?.results;
-  };
-
-  const rememberResults = (query, items) => {
-    const normalizedQuery = normalizeQuery(query);
-    const context = cacheContext();
-    cachedResults = [
-      { query: normalizedQuery, context, results: items },
-      ...cachedResults.filter(
-        (entry) => entry.query !== normalizedQuery || entry.context !== context
-      ),
-    ].slice(0, SEARCH_CACHE_SIZE);
-  };
+  const currentQuery = () => input.value.trim();
+  const cacheKey = (query) => `${query.toLocaleLowerCase()}|${cacheContext()}`;
 
   const setActive = (index) => {
     activeIndex = index;
@@ -67,200 +74,229 @@ export function createSearchBox({
     }
   };
 
-  const close = () => {
-    // Drop any queued or in-flight search so a late answer can't reopen the list.
-    clearTimeout(debounceTimer);
-    if (controller) controller.abort();
-    popup.hidden = true;
-    input.setAttribute("aria-expanded", "false");
-    setActive(-1);
-  };
-
   const open = () => {
     popup.hidden = false;
     input.setAttribute("aria-expanded", "true");
   };
 
-  const showMessage = (text) => {
-    list.replaceChildren();
-    list.hidden = true;
+  const cancelPending = () => {
+    clearTimeout(debounceTimer);
+    if (controller) controller.abort();
+    controller = null;
+    pickWhenReady = false;
+  };
+
+  const close = () => {
+    cancelPending();
+    popup.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    setActive(-1);
+  };
+
+  const showMessage = (text, { keepList = false } = {}) => {
+    if (!keepList) {
+      items = [];
+      itemsQuery = null;
+      list.replaceChildren();
+      list.hidden = true;
+    }
     message.textContent = text;
-    message.hidden = false;
+    message.hidden = !text;
     open();
+  };
+
+  const optionFor = (place, index, query) => {
+    const option = document.createElement("div");
+    option.id = `search-option-${index}`;
+    option.className = "search-option";
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", "false");
+    option.dataset.index = String(index);
+
+    const name = document.createElement("span");
+    name.className = "search-option-name";
+    const match = query ? findMatch(place.name, query) : null;
+    if (match) {
+      const mark = document.createElement("mark");
+      mark.textContent = match[1];
+      name.append(match[0], mark, match[2]);
+    } else {
+      name.textContent = place.name;
+    }
+
+    const context = document.createElement("span");
+    context.className = "search-option-context";
+    context.textContent = place.context || "Location";
+
+    option.append(name, context);
+    const distance = describeDistance(place.distance_km);
+    if (distance) {
+      const away = document.createElement("span");
+      away.className = "search-option-distance";
+      away.textContent = distance;
+      option.append(away);
+    }
+    return option;
+  };
+
+  const renderList = (places, query, heading) => {
+    items = places;
+    itemsQuery = query;
+    list.replaceChildren(...places.map((place, index) => optionFor(place, index, query)));
+    list.hidden = false;
+    message.textContent = heading;
+    message.hidden = !heading;
+    open();
+    setActive(-1);
   };
 
   const choose = (index) => {
-    const result = results[index];
-    if (!result) return;
+    const place = items[index];
+    if (!place) return;
     close();
-    onSelect(result);
+    // Forget the list, so arrow keys in the now-empty field don't reopen it.
+    items = [];
+    itemsQuery = null;
+    input.value = "";
+    // After a tap, drop focus so the on-screen keyboard closes and the weather shows.
+    if (lastPointer === "touch") input.blur();
+    onSelect(place);
   };
 
-  const render = (items) => {
-    results = items;
-    if (!items.length) {
-      showMessage("No matching places found.");
+  const showResults = (results, query) => {
+    if (!results.length) {
+      showMessage(`No places match "${query}". Check the spelling, or add a region or country, like "Paris, France".`);
       announce("No matching places found.");
       return;
     }
+    renderList(results, query, "");
+    announce(`${results.length} places found. Use the up and down arrow keys to review them.`);
+    if (pickWhenReady) {
+      pickWhenReady = false;
+      choose(0);
+    }
+  };
 
-    message.hidden = true;
-    list.hidden = false;
-    list.replaceChildren(
-      ...items.map((item, index) => {
-        const option = document.createElement("div");
-        option.id = `search-option-${index}`;
-        option.className = "search-option";
-        option.setAttribute("role", "option");
-        option.setAttribute("aria-selected", "false");
-        option.dataset.index = String(index);
-
-        const name = document.createElement("span");
-        name.textContent = item.name;
-        const context = document.createElement("small");
-        context.textContent = item.context || "Location";
-        option.append(name, context);
-        return option;
-      })
-    );
-    open();
-    setActive(-1);
-    announce(`${items.length} places found. Use the up and down arrow keys to review them.`);
+  const showRecent = () => {
+    const places = recentPlaces();
+    if (!places.length) {
+      close();
+      return;
+    }
+    renderList(places, null, "Recent places");
   };
 
   const run = async () => {
     clearTimeout(debounceTimer);
-    const query = input.value.trim();
-    if (!query) {
-      if (controller) controller.abort();
-      close();
-      return;
-    }
-    if (query.length < MIN_QUERY_LENGTH) {
-      if (controller) controller.abort();
-      showMessage("Type at least 2 characters to search.");
-      return;
-    }
+    const query = currentQuery();
+    if (query.length < MIN_QUERY_LENGTH) return;
 
-    const cached = cachedResultsFor(query);
+    const cached = cache.find((entry) => entry.key === cacheKey(query));
     if (cached) {
-      if (controller) controller.abort();
-      render(cached);
+      showResults(cached.results, query);
       return;
     }
-
-    const now = Date.now();
-    if (now < lockoutUntil) return;
-    searchTimestamps = searchTimestamps.filter(
-      (timestamp) => now - timestamp < SEARCH_WINDOW_MS
-    );
-    if (searchTimestamps.length >= SEARCH_LIMIT) {
-      lockoutCount += 1;
-      const duration = Math.min(LOCKOUT_STEP_MS * lockoutCount, MAX_LOCKOUT_MS);
-      lockoutUntil = now + duration;
-      searchTimestamps = [];
-      close();
-      if (lockoutCount >= 5) {
-        const seconds = Math.ceil(duration / 1000);
-        showMessage(`Please wait ${seconds} seconds before searching again.`);
-        announce(`Search paused for ${seconds} seconds.`);
-      }
-      return;
-    }
-    searchTimestamps.push(now);
 
     if (controller) controller.abort();
     controller = new AbortController();
     const mine = controller;
-    showMessage("Searching places…");
+    // Keep the previous results on screen while the next ones load (no flicker).
+    if (itemsQuery) showMessage("Searching places…", { keepList: true });
+    else showMessage("Searching places…");
 
     try {
-      const items = await search(query, mine.signal);
-      rememberResults(query, items);
-      render(items);
+      const results = await search(query, mine.signal);
+      if (controller !== mine || currentQuery() !== query) return; // superseded
+      controller = null;
+      cache = [{ key: cacheKey(query), results }, ...cache.filter((e) => e.key !== cacheKey(query))]
+        .slice(0, CACHE_SIZE);
+      showResults(results, query);
     } catch (error) {
       if (error.name === "AbortError" || controller !== mine) return;
+      controller = null;
+      pickWhenReady = false;
       showMessage("Search is unavailable right now. Try again in a moment.");
     }
   };
 
+  // Enter or the Search button: pick the highlighted option, or the best match.
+  const submit = () => {
+    const query = currentQuery();
+    if (activeIndex >= 0 && isOpen()) {
+      choose(activeIndex);
+      return;
+    }
+    if (query.length < MIN_QUERY_LENGTH) {
+      if (query) showMessage("Type at least 2 characters to search.");
+      else showRecent();
+      return;
+    }
+    if (isOpen() && itemsQuery === query && items.length) {
+      choose(0);
+      return;
+    }
+    pickWhenReady = true;
+    run();
+  };
+
   input.addEventListener("input", () => {
-    replaceOnNextInput = false;
+    pickWhenReady = false;
     clearTimeout(debounceTimer);
-    if (cachedResultsFor(input.value)) {
-      run();
+    const query = currentQuery();
+    if (!query) {
+      cancelPending();
+      showRecent();
+    } else if (query.length < MIN_QUERY_LENGTH) {
+      cancelPending();
+      close();
     } else {
       debounceTimer = setTimeout(run, DEBOUNCE_MS);
     }
   });
 
-  const selectForReplacement = () => {
-    input.select();
-    replaceOnNextInput = true;
+  // Focusing or clicking the empty field offers the recent places. The click
+  // covers a field that kept focus after a mouse pick.
+  const offerRecent = () => {
+    if (!currentQuery() && !isOpen()) showRecent();
   };
+  input.addEventListener("focus", offerRecent);
+  input.addEventListener("click", offerRecent);
 
-  input.addEventListener("focus", selectForReplacement);
-  input.addEventListener("pointerdown", (event) => {
-    if (document.activeElement === input) {
-      event.preventDefault();
-      selectForReplacement();
-    }
-  });
-  input.addEventListener("mousedown", (event) => {
-    if (document.activeElement === input) {
-      event.preventDefault();
-      selectForReplacement();
-    }
-  });
-  input.addEventListener("mouseup", (event) => {
-    if (document.activeElement === input) {
-      event.preventDefault();
-      selectForReplacement();
-    }
-  });
-  input.addEventListener("click", () => {
-    selectForReplacement();
-    setTimeout(() => {
-      if (document.activeElement === input) selectForReplacement();
-    }, 0);
+  // Tabbing to another control closes the list. Losing focus to nothing (for
+  // example closing a phone keyboard) keeps it open so the results can be read.
+  input.addEventListener("blur", (event) => {
+    if (event.relatedTarget && !popup.contains(event.relatedTarget)) close();
   });
 
   input.addEventListener("keydown", (event) => {
-    if (
-      replaceOnNextInput &&
-      event.key.length === 1 &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
-      input.value = "";
-      replaceOnNextInput = false;
-    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      if (!results.length) return;
+      if (!items.length) return;
       event.preventDefault();
       if (!isOpen()) open();
       const step = event.key === "ArrowDown" ? 1 : -1;
-      setActive((activeIndex + step + results.length) % results.length);
-    } else if (event.key === "Enter" && isOpen() && results.length) {
+      setActive((activeIndex + step + items.length) % items.length);
+    } else if (event.key === "Enter") {
       event.preventDefault();
-      choose(activeIndex >= 0 ? activeIndex : 0);
-    } else if (event.key === "Escape" && isOpen()) {
+      submit();
+    } else if (event.key === "Escape") {
       event.preventDefault();
-      close();
+      if (isOpen()) close();
+      else input.value = "";
     }
   });
 
-  // Mouse and touch: pointerdown fires before the input loses focus.
-  list.addEventListener("pointerdown", (event) => event.preventDefault());
+  document.addEventListener("pointerdown", (event) => {
+    lastPointer = event.pointerType || "mouse";
+    if (isOpen() && !popup.contains(event.target) && event.target !== input) close();
+  });
+
+  // A mouse press keeps focus in the field. Touch is left alone, so a swipe
+  // that scrolls the list never turns into a pick (browsers send no click then).
+  list.addEventListener("mousedown", (event) => event.preventDefault());
   list.addEventListener("click", (event) => {
     const option = event.target.closest('[role="option"]');
     if (option) choose(Number(option.dataset.index));
   });
 
-  document.addEventListener("pointerdown", (event) => {
-    if (isOpen() && !popup.contains(event.target) && event.target !== input) close();
-  });
-
-  return { run, close };
+  return { submit, close };
 }

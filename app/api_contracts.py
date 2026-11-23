@@ -121,6 +121,7 @@ def validate_location_response(data: Any) -> dict[str, Any]:
     }
 
 
+# /search ranks every valid upstream match, then returns at most this many.
 MAX_SEARCH_RESULTS = 10
 
 
@@ -157,13 +158,15 @@ def _parse_search_item(item: Any) -> dict[str, Any] | None:
         "latitude": latitude,
         "longitude": longitude,
         "population": population,
+        "country_code": str(item.get("country_code") or "").strip().upper(),
     }
 
 
 def validate_search_response(data: Any) -> list[dict[str, Any]]:
     """Validate and normalize a geocoding search response payload.
 
-    Checks the payload structure and extracts up to 10 valid place items from the results.
+    Checks the payload structure and keeps every valid place. The caller ranks them
+    and trims the list (the provider is already asked for a bounded number).
 
     Args:
         data: Payload from a geocoding search API (must have "results" key).
@@ -182,7 +185,7 @@ def validate_search_response(data: Any) -> list[dict[str, Any]]:
         raise InvalidUpstreamPayload("location search payload is invalid")
     if not isinstance(data["results"], list):
         raise InvalidUpstreamPayload("location search payload is invalid")
-    parsed = (_parse_search_item(item) for item in data["results"][:MAX_SEARCH_RESULTS])
+    parsed = (_parse_search_item(item) for item in data["results"])
     return [result for result in parsed if result is not None]
 
 
@@ -226,11 +229,39 @@ CURRENT_FIELDS = (
     "weather_code",
     "rain",
     "relative_humidity_2m",
+)
+
+# Extra "current" details. Some models leave a value out or send null; the page
+# then shows "--" for that one detail instead of failing the whole request.
+OPTIONAL_CURRENT_FIELDS = (
+    "apparent_temperature",
+    "wind_direction_10m",
+    "precipitation",
+    "snowfall",
+    "dew_point_2m",
+    "pressure_msl",
+    "visibility",
+    "is_day",
     "uv_index",
+)
+
+# Daily summaries. "time" is each day's local midnight as a Unix timestamp.
+DAILY_FIELDS = (
+    "temperature_2m_max",
+    "temperature_2m_min",
+    "sunrise",
+    "sunset",
+    "uv_index_max",
+    "precipitation_sum",
+    "precipitation_probability_max",
+    "snowfall_sum",
 )
 
 # The hourly series are cut to this many points (two days of hourly data).
 MAX_HOURLY_POINTS = 48
+
+# Today and tomorrow, matching forecast_days.
+MAX_DAILY_POINTS = 2
 
 
 def _validate_current(data: dict[str, Any]) -> dict[str, Any]:
@@ -252,6 +283,9 @@ def _validate_current(data: dict[str, Any]) -> dict[str, Any]:
         raise InvalidUpstreamPayload("weather current data is missing")
     for field in CURRENT_FIELDS:
         if field not in current or not _is_number(current[field]):
+            raise InvalidUpstreamPayload(f"weather field {field} is invalid")
+    for field in OPTIONAL_CURRENT_FIELDS:
+        if current.get(field) is not None and not _is_number(current[field]):
             raise InvalidUpstreamPayload(f"weather field {field} is invalid")
     return current
 
@@ -310,6 +344,38 @@ def _validate_hourly(data: dict[str, Any]) -> dict[str, list[Any]]:
     }
 
 
+def _validate_daily(data: dict[str, Any]) -> dict[str, list[Any]] | None:
+    """Validate Open-Meteo daily summaries, if the payload has them.
+
+    Missing daily data is allowed (the page shows "--" for those details).
+    When present, "time" must be a non-empty list of numbers, and each known
+    series must be a list of the same length holding numbers or nulls.
+
+    Raises:
+        InvalidUpstreamPayload: If the daily block is present but malformed.
+    """
+    daily = data.get("daily")
+    if daily is None:
+        return None
+    if not isinstance(daily, dict):
+        raise InvalidUpstreamPayload("weather daily data is invalid")
+    times = daily.get("time")
+    if not isinstance(times, list) or not times:
+        raise InvalidUpstreamPayload("weather daily data is invalid")
+    _require_numbers(times, "weather daily dates are invalid")
+    result = {"time": times[:MAX_DAILY_POINTS]}
+    for field in DAILY_FIELDS:
+        series = daily.get(field)
+        if series is None:
+            continue
+        if not isinstance(series, list) or len(series) != len(times):
+            raise InvalidUpstreamPayload(f"weather daily {field} is invalid")
+        if not all(value is None or _is_number(value) for value in series):
+            raise InvalidUpstreamPayload(f"weather daily {field} is invalid")
+        result[field] = series[:MAX_DAILY_POINTS]
+    return result
+
+
 def _timezone_or_utc(data: dict[str, Any]) -> str:
     timezone = data.get("timezone")
     if isinstance(timezone, str) and timezone.strip():
@@ -320,13 +386,14 @@ def _timezone_or_utc(data: dict[str, Any]) -> str:
 def validate_weather_response(data: Any) -> dict[str, Any]:
     """Check an Open-Meteo forecast and return only the fields the API serves.
 
-    The checks run in a fixed order (current, hourly, coordinates) and the first
+    The checks run in a fixed order (current, hourly, daily, coordinates) and the first
     failure is the one reported.
     """
     if not isinstance(data, dict):
         raise InvalidUpstreamPayload("weather payload is not an object")
     current = _validate_current(data)
     hourly = _validate_hourly(data)
+    daily = _validate_daily(data)
     latitude, longitude = _parse_coordinates(data, "weather")
     return {
         "latitude": latitude,
@@ -334,6 +401,7 @@ def validate_weather_response(data: Any) -> dict[str, Any]:
         "timezone": _timezone_or_utc(data),
         "current": current,
         "hourly": hourly,
+        "daily": daily,
     }
 
 
@@ -346,7 +414,8 @@ def weather_response(data: dict[str, Any]):
 
     Args:
         data: A dict containing validated weather data from validate_weather_response.
-               Must have "latitude", "longitude", "timezone", "current", and "hourly" keys.
+               Must have "latitude", "longitude", "timezone", "current" and "hourly"
+               keys; "daily" may be missing or None.
 
     Returns:
         flask.Response: HTTP 200 response with weather JSON body including "source" field.
@@ -364,6 +433,7 @@ def weather_response(data: dict[str, Any]):
             "timezone": data["timezone"],
             "current": data["current"],
             "hourly": data["hourly"],
+            "daily": data.get("daily"),
             "source": "Open-Meteo",
         }
     )

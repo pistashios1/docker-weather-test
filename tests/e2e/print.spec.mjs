@@ -28,3 +28,25 @@ test("printing shows the weather without the map, marker, glass or controls", as
   );
   expect(forecast).toBe(true);
 });
+
+test("the printout fits one page, even at night with every optional row shown", async ({ page }) => {
+  await mockApi(page, {
+    location: { latitude: 51.5, longitude: -0.12, name: "London, England" },
+    weather: { current: { is_day: 0, rain: 0.4, snowfall: 0.3 }, daily: { snowfall_sum: [2.1, 0] } },
+  });
+  await page.goto("/");
+  await expect(page.locator("#snow-row")).toBeVisible();
+
+  await page.emulateMedia({ media: "print" });
+  const hero = await page.locator(".hero").evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(hero).toBe("none");
+  const columns = await page.locator("#forecast").evaluate(
+    (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+  );
+  expect(columns).toBe(6);
+
+  for (const format of ["A4", "Letter"]) {
+    const pdf = (await page.pdf({ format, preferCSSPageSize: true })).toString("latin1");
+    expect(pdf.match(/\/Type\s*\/Page[^s]/g), `${format} pages`).toHaveLength(1);
+  }
+});
