@@ -206,7 +206,8 @@ const renderForecast = () => {
   ];
   forecast.replaceChildren(
     ...forecastItems.map(({ time, temperature: fahrenheit, weatherCode }, index) => {
-      const condition = conditionForCode(Number(weatherCode));
+      // Hourly values can be null (a gap in the model); Number(null) would read as "Clear".
+      const condition = conditionForCode(isNumber(weatherCode) ? weatherCode : undefined);
       const temperature = metric ? fahrenheitToCelsius(fahrenheit) : fahrenheit;
 
       const card = document.createElement("div");
@@ -214,7 +215,7 @@ const renderForecast = () => {
       const parts = [
         ["forecast-time", index === 0 ? time : formatHour(time, lastData.timezone)],
         ["forecast-symbol", condition.icon],
-        ["forecast-temperature", `${numberFormat(0).format(temperature)}°`],
+        ["forecast-temperature", isNumber(fahrenheit) ? `${numberFormat(0).format(temperature)}°` : "--"],
         ["forecast-condition", condition.label],
       ];
       parts.forEach(([className, text]) => {
@@ -238,7 +239,7 @@ const render = () => {
   const wind = metric ? mphToKmh(current.wind_speed_10m) : current.wind_speed_10m;
   const condition = conditionForCode(Number(current.weather_code));
 
-  $("#location-name").textContent = selectedLocation.name;
+  $("#location-name").textContent = shownLocation.name;
   $("#coordinates").textContent = formatCoordinates(lastData.latitude, lastData.longitude);
   updateLocalTime();
   $("#condition").textContent = `${condition.icon} ${condition.label}`;
@@ -426,7 +427,7 @@ const loadWeather = async () => {
     startLocalTimeClock();
     revealResult();
     announce(
-      `Weather loaded for ${selectedLocation.name}: ${$("#temperature").textContent}` +
+      `Weather loaded for ${shownLocation.name}: ${$("#temperature").textContent}` +
         `${$("#temperature-unit").textContent}, ${$("#condition").textContent.replace(/^\S+\s/, "")}, ` +
         `wind ${$("#wind").textContent} ${$("#wind-unit").textContent}.`
     );
@@ -522,7 +523,7 @@ const showCurrentWeather = () => {
   setBusy(false);
   setState("ready");
   startLocalTimeClock();
-  announce(`Showing weather for ${selectedLocation.name}.`);
+  announce(`Showing weather for ${shownLocation.name}.`);
 };
 
 // The precise lookup failed or was refused. Say why, then keep the place already
@@ -583,7 +584,9 @@ const useCachedUserLocation = () => {
   const location = readUserLocation();
   if (!location) return false;
 
-  if (sameLocation(selectedLocation, location) && lastData) {
+  // Compare with the place on screen: selectedLocation can be a newer pick whose load failed.
+  if (sameLocation(shownLocation, location) && lastData) {
+    selectedLocation = shownLocation;
     showCurrentWeather();
     return true;
   }
@@ -595,19 +598,24 @@ const useCachedUserLocation = () => {
 const resolveBrowserLocation = async ({ coords }, attempt) => {
   const cached = readUserLocation();
   let name = sameLocation(cached, coords) ? cached.name : "";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS);
   try {
     const data = await fetchJson(
-      `/reverse-location?latitude=${coords.latitude}&longitude=${coords.longitude}`
+      `/reverse-location?latitude=${coords.latitude}&longitude=${coords.longitude}`,
+      controller.signal
     );
     const resolvedName = typeof data.name === "string" ? data.name.trim() : "";
     if (resolvedName) name = resolvedName;
   } catch {
-    // Weather still works when reverse geocoding is unavailable.
+    // Unavailable or too slow: the weather still works without a place name.
+  } finally {
+    clearTimeout(timer);
   }
+  if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
   if (!name) name = "Your location";
   const location = { latitude: coords.latitude, longitude: coords.longitude, name };
   rememberUserLocation(location);
-  if (attempt !== locationAttempt) return; // The visitor picked a city meanwhile.
   saveLocation(LAST_LOCATION_KEY, location);
   applyLocation(location);
 };
@@ -650,15 +658,6 @@ const useMyLocation = () => {
   hideToast();
   if (useCachedUserLocation()) return;
   requestPreciseLocation();
-};
-
-const refreshWeather = () => {
-  const location = readUserLocation();
-  if (location && !sameLocation(selectedLocation, location)) {
-    applyLocation(location);
-  } else {
-    loadWeather();
-  }
 };
 
 /* ---------- Search ---------- */
@@ -710,7 +709,7 @@ locationButton.addEventListener("click", () => {
 });
 
 retryButton.addEventListener("click", () => {
-  if (!busy) refreshWeather();
+  if (!busy) loadWeather(); // Retry the place that failed.
 });
 
 unitRadios.forEach((radio) => {

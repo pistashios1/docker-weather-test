@@ -100,3 +100,27 @@ test("after a pick, Arrow Down in the empty field does not reopen the old result
 
   await expect(page.locator("#search-popup")).toBeHidden();
 });
+
+test("clicking Search picks the highlighted option, not the first one", async ({ page }) => {
+  await setup(page);
+  const field = page.locator("#location-search");
+  await field.fill("os");
+  await expect(page.locator("#search-option-1")).toBeVisible();
+  await field.press("ArrowDown");
+  await field.press("ArrowDown");
+
+  await page.locator("#search-button").click();
+
+  await expect(page.locator("#location-name")).toHaveText("Osaka");
+});
+
+test("tabbing from the field to the Search button still closes the list", async ({ page }) => {
+  await setup(page);
+  const field = page.locator("#location-search");
+  await field.fill("os");
+  await expect(page.locator("#search-option-0")).toBeVisible();
+
+  await field.press("Tab");
+
+  await expect(page.locator("#search-popup")).toBeHidden();
+});

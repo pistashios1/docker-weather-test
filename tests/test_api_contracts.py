@@ -179,9 +179,27 @@ def test_weather_rejects_a_non_numeric_hourly_timestamp():
 
 def test_weather_rejects_a_non_numeric_hourly_weather_code():
     payload = _weather()
-    payload["hourly"]["weather_code"][2] = None
+    payload["hourly"]["weather_code"][2] = "rain"
 
     _rejects(payload, "weather hourly codes are invalid")
+
+
+def test_weather_accepts_missing_hourly_values():
+    payload = _weather()
+    payload["hourly"]["temperature_2m"][1] = None
+    payload["hourly"]["weather_code"][2] = None
+
+    result = validate_weather_response(payload)
+
+    assert result["hourly"]["temperature_2m"][1] is None
+    assert result["hourly"]["weather_code"][2] is None
+
+
+def test_weather_still_requires_every_hourly_timestamp():
+    payload = _weather()
+    payload["hourly"]["time"][1] = None
+
+    _rejects(payload, "weather hourly timestamps are invalid")
 
 
 def test_weather_checks_hourly_temperatures_before_hourly_codes():
