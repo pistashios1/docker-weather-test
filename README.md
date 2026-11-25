@@ -11,14 +11,15 @@ and hourly forecasts from Open-Meteo API for any city or your current location.
 - See the temperature with feels-like and today's high and low, wind speed and
   direction, chance of rain and precipitation, snowfall when it applies,
   humidity, dew point, visibility, pressure, UV now and today's peak, sunrise
-  and sunset with a live daylight countdown, and a twelve-hour forecast.
+  and sunset with a live daylight countdown, a twelve-hour forecast, and a
+  7-day forecast.
 - The banner follows the time of day at that place, with a night look after
   sunset.
 - Switch between °F/mph and °C/km/h; your choice is remembered in the browser.
 - Prints cleanly on one page (Ctrl+P / Cmd+P).
 - Runs locally with Python or Docker. No account or API key is required.
 
-![Weather Lookup dashboard for New York: the hero banner with temperature, feels-like, today's high and low in the top-right corner and wind direction, a grid of weather details including sunrise and a sunset daylight countdown, a twelve-hour forecast, and the city search controls](docs/dashboard.png)
+![Weather Lookup dashboard for New York: the hero banner with temperature, feels-like, today's high and low in the top-right corner and wind direction, a grid of weather details including sunrise and a sunset daylight countdown, a twelve-hour forecast, a 7-day forecast with rain chances, and the city search controls](docs/dashboard.png)
 *The dashboard (New York in the afternoon, dark mode).*
 
 ## Try it in two minutes
@@ -101,7 +102,7 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | Go back to a place you looked at | Click or tap the empty search box: your last five picks are listed under **Recent places**. |
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
-| Print or save as PDF | Use your browser's print command. You get one black-on-white page with the place, current conditions, details and forecast, without the map, search box or toggles. |
+| Print or save as PDF | Use your browser's print command. You get one page with the weather card as it looks on screen in the light theme (even if you use dark mode): the place, current conditions, details, all twelve hours and the 7-day forecast, without the map, search box or toggles. |
 
 When the page opens it works out roughly where you are, in this order:
 
@@ -157,6 +158,10 @@ recent picks are stored only in your browser.
 - The hero banner switches to a **night** look (darker, with a moon) after
   sunset at that place.
 - **Hourly forecast** shows the next twelve hours, starting with **Now**.
+- **7-day forecast** lists today and the next six days. Each day shows an
+  icon, the chance of precipitation on rainy or snowy days, the average
+  temperature followed by the low and high, and the day's top wind speed and
+  UV index.
 - Any one value the weather model doesn't provide shows `--`. The server caches
   weather for 30 seconds.
 
@@ -167,7 +172,7 @@ Browser (public/static/ + app/templates/)
    |
    |  GET /location         approximate position from the visitor's IP
    |  GET /search           find a city by name
-   |  GET /weather          current conditions, daily summary, hourly forecast
+   |  GET /weather          current conditions, 7-day daily summary, hourly forecast
    |  GET /reverse-location turn browser coordinates into a place name
    v
 Flask app (app/weather_app.py)  --  validates input, caches, rate limits
@@ -232,6 +237,8 @@ curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
   },
   "daily": {
     "time": [1794632400, 1794718800],
+    "weather_code": [2, 61],
+    "temperature_2m_mean": [59.1, 55.4],
     "temperature_2m_max": [66.2, 61.0],
     "temperature_2m_min": [52.3, 49.8],
     "sunrise": [1794657600, 1794744060],
@@ -239,7 +246,8 @@ curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
     "uv_index_max": [3.1, 2.4],
     "precipitation_sum": [0.4, 0.0],
     "precipitation_probability_max": [20, 5],
-    "snowfall_sum": [0.0, 0.0]
+    "snowfall_sum": [0.0, 0.0],
+    "wind_speed_10m_max": [11.4, 15.2]
   },
   "source": "Open-Meteo"
 }
@@ -256,6 +264,7 @@ curl "http://localhost:5000/weather?latitude=40.71&longitude=-74.01"
   doesn't provide them.
 - `weather_code` is a [WMO weather code](https://open-meteo.com/en/docs#weathervariables).
   The dashboard turns it into a label such as *Clear*, *Rain* or *Thunderstorm*.
+- `daily` holds up to 7 days, starting today (the example shows two).
 - `hourly` holds up to 48 hours so the dashboard can show 12 consecutive
   hours even when the forecast crosses midnight.
 

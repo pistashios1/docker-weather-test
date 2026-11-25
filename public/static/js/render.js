@@ -11,6 +11,7 @@ const {
   formatCoordinates,
   formatDuration,
   formatHour,
+  formatWeekday,
   hpaToInHg,
   metresToDistance,
   mphToKmh,
@@ -21,6 +22,9 @@ const {
 
 const $ = (selector) => document.querySelector(selector);
 const FORECAST_HOURS = 12;
+const WEEK_DAYS = 7;
+// Conditions that get a precipitation chance beside their icon.
+const WET_CONDITIONS = new Set(["rain", "snow", "storm"]);
 
 // Optional values can be missing or null upstream; show "--" for just that one.
 export const isNumber = (value) => typeof value === "number" && Number.isFinite(value);
@@ -80,6 +84,81 @@ const renderForecast = (data, metric) => {
   );
 };
 
+const span = (className, ...children) => {
+  const element = document.createElement("span");
+  if (className) element.className = className;
+  element.append(...children);
+  return element;
+};
+const spoken = (text) => span("visually-hidden", text);
+const shown = (text) => {
+  const element = span("", text);
+  element.setAttribute("aria-hidden", "true");
+  return element;
+};
+
+// One row per day from today: icon (plus rain/snow chance), average, low-high, wind and UV.
+const renderWeek = (data, metric) => {
+  const week = $("#week");
+  const { daily } = data;
+  const times = daily && Array.isArray(daily.time) ? daily.time : [];
+  const today = forecastStartIndex(times, data.current.time);
+  const start = Math.max(0, today);
+  const days = times.slice(start, start + WEEK_DAYS);
+  if (!days.length) {
+    const unavailable = document.createElement("li");
+    unavailable.className = "week-unavailable";
+    unavailable.textContent = "Weekly forecast unavailable.";
+    week.replaceChildren(unavailable);
+    return;
+  }
+
+  const degrees = (fahrenheit) =>
+    formatOr(isNumber(fahrenheit) && metric ? fahrenheitToCelsius(fahrenheit) : fahrenheit, 0, "°");
+  week.replaceChildren(
+    ...days.map((time, offset) => {
+      const index = start + offset;
+      const value = (field) => (Array.isArray(daily[field]) ? daily[field][index] ?? null : null);
+      const code = value("weather_code");
+      const condition = conditionForCode(isNumber(code) ? code : undefined);
+      const low = value("temperature_2m_min");
+      const high = value("temperature_2m_max");
+      // Open-Meteo's daily mean; the midpoint stands in if a model leaves it out.
+      const mean = value("temperature_2m_mean")
+        ?? (isNumber(low) && isNumber(high) ? (low + high) / 2 : null);
+      const chance = value("precipitation_probability_max");
+      const wind = value("wind_speed_10m_max");
+      const uv = value("uv_index_max");
+
+      const symbol = span("week-symbol", shown(condition.icon), spoken(condition.label));
+      if (WET_CONDITIONS.has(condition.key) && isNumber(chance)) {
+        symbol.append(" ", span("week-chance", `${numberFormat(0).format(Math.max(0, chance))}%`, spoken(" chance")));
+      }
+      const extras = [
+        isNumber(wind) && `Wind ${formatOr(metric ? mphToKmh(wind) : wind, 0, metric ? " km/h" : " mph")}`,
+        isNumber(uv) && `UV ${formatOr(Math.max(0, uv), 0)}`,
+      ].filter(Boolean);
+
+      const row = document.createElement("li");
+      row.className = "week-day";
+      // Spaces between the parts keep screen readers from running words together;
+      // grid layout ignores them.
+      const parts = [
+        span("week-name", index === today ? "Today" : formatWeekday(time, data.timezone)),
+        symbol,
+        span("week-temperature", spoken("Average "), degrees(mean)),
+        // One "--" when either end is missing, not a "--–--" run of dashes.
+        isNumber(low) && isNumber(high)
+          ? span("week-range", spoken("low "), degrees(low), shown("–"), spoken(", high "), degrees(high))
+          : span("week-range", "--"),
+        span("week-extra", extras.join(" · ")),
+      ];
+      row.append(...parts.flatMap((part, at) => (at ? [" ", part] : [part])));
+      return row;
+    })
+  );
+};
+
 // The hero, details and forecast for one /weather payload (imperial units).
 export const renderWeather = (data, placeName, metric) => {
   const { current } = data;
@@ -103,6 +182,7 @@ export const renderWeather = (data, placeName, metric) => {
   // Open-Meteo's is_day is 1 or 0; a missing value keeps the day look.
   panel.dataset.daylight = current.is_day === 0 ? "night" : "day";
   renderForecast(data, metric);
+  renderWeek(data, metric);
 };
 
 const renderWindDirection = (degrees) => {

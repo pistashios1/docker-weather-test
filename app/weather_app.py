@@ -19,6 +19,7 @@ from urllib3.util.retry import Retry
 if __package__:
     from .api_contracts import (
         DAILY_FIELDS,
+        MAX_DAILY_POINTS,
         MAX_SEARCH_RESULTS,
         InvalidUpstreamPayload,
         error_response,
@@ -33,6 +34,7 @@ if __package__:
 else:
     from api_contracts import (
         DAILY_FIELDS,
+        MAX_DAILY_POINTS,
         MAX_SEARCH_RESULTS,
         InvalidUpstreamPayload,
         error_response,
@@ -471,7 +473,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
                     ),
                     "hourly": "temperature_2m,weather_code",
                     "daily": ",".join(DAILY_FIELDS),
-                    "forecast_days": 2,
+                    "forecast_days": MAX_DAILY_POINTS,
                     "timezone": "auto",
                     "timeformat": "unixtime",
                     # The dashboard expects imperial and converts to metric itself.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
-  compassPoint, daylightStatus, forecastStartIndex, formatDuration, formatHour,
+  compassPoint, daylightStatus, forecastStartIndex, formatDuration, formatHour, formatWeekday,
   formatUtcOffset, hpaToInHg,
   metresToDistance, mphToKmh, toneForFahrenheit, uvCategory,
 } from "../../public/static/js/format.js";
@@ -25,7 +25,7 @@ test("conditionForCode maps WMO codes and falls back", () => {
   assert.equal(conditionForCode(53).key, "rain");
   assert.equal(conditionForCode(81).label, "Rain");
   assert.equal(conditionForCode(75).label, "Snow");
-  assert.equal(conditionForCode(99).label, "Thunderstorm");
+  assert.equal(conditionForCode(99).label, "Thunder\u00adstorm"); // soft hyphen, shown only at a line break
   assert.equal(conditionForCode(4).key, "unknown");
   assert.equal(conditionForCode(undefined).key, "unknown");
 });
@@ -40,6 +40,13 @@ test("Unix API timestamps are converted with the selected timezone", () => {
   assert.match(formatHour(utcTimestamp, "UTC"), /2/);
   assert.match(formatHour(utcTimestamp, "America/New_York"), /9/);
   assert.match(formatClock(utcTimestamp, "UTC"), /2:00/);
+});
+
+test("formatWeekday reads the day in the place's timezone", () => {
+  const saturdayMidnightUtc = 1794614400;
+  assert.match(formatWeekday(saturdayMidnightUtc, "UTC"), /Sat/);
+  assert.match(formatWeekday(saturdayMidnightUtc, "America/New_York"), /Fri/);
+  assert.equal(formatWeekday(null), "--");
 });
 
 test("formatClock honours an explicit time zone for dates", () => {

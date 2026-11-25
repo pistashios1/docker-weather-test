@@ -17,8 +17,8 @@ controls are kept to one row and the result sits directly below them.
 
 | Breakpoint | Layout |
 | --- | --- |
-| Wide, 36rem and up | Header: title left, unit toggle right. Search row: field, **Search**, **Use my location** link on one line. Details: tiles at least 11rem wide, as many columns as fit (4 at the full 56rem column, so the 8 tiles make two rows of 4). Forecast: 12 cards in one row from 52rem, scrolls sideways below that. |
-| Narrow, under 36rem | Header stacks. Search field is on its own line, **Search** and the **Use my location** link share the next. Details: tiles at least 8.5rem wide, so two columns on a phone. Hero: the high/low stays in the top-right corner; the wind takes a full row below the temperature and aligns left. Forecast scrolls sideways. |
+| Wide, 36rem and up | Header: title left, unit toggle right. Search row: field, **Search**, **Use my location** link on one line. Details: tiles at least 11rem wide, as many columns as fit (4 at the full 56rem column, so the 8 tiles make two rows of 4). Forecast: 12 cards in one row from 52rem, scrolls sideways below that. Weekly forecast: one row per day (day, icon and chance, average, low–high, then wind · UV pushed right). |
+| Narrow, under 36rem | Header stacks. Search field is on its own line, **Search** and the **Use my location** link share the next. Details: tiles at least 8.5rem wide, so two columns on a phone. Hero: the high/low stays in the top-right corner; the wind takes a full row below the temperature and aligns left. Forecast scrolls sideways. Weekly forecast: wind · UV wraps to a second line under the temperatures. |
 
 - Header, search card and result card share one column, at most 56rem wide (`--column-width`), centred.
 - After a successful lookup, if the result starts in the lower part of the screen (below 55% of the viewport height) it is scrolled into view. It uses an instant jump when the system asks for reduced motion.
@@ -160,6 +160,29 @@ They are worked out by `daylightStatus()` in `format.js`.
 - Visibility comes before pressure because it is the reading people notice (fog, haze). Pressure matters mostly next to other readings.
 - Precipitation and snow stay in mm and cm under both settings because the unit toggle's labels name only temperature and wind.
 
+### Weekly forecast
+
+Below the hourly forecast, under its own "7-day forecast" heading (same style as
+"Hourly forecast"). An `ol` of up to 7 rows starting at today (the same "today"
+as the details grid). The rows share the list's columns through `subgrid`, so
+every part lines up down the week. Each row is at least 44px tall, divided by 1px
+`--color-border` lines, with no line above the first row.
+
+| Part | Example | Style | Source |
+| --- | --- | --- | --- |
+| Day | "Today", then "Sun", "Mon"… | 700 | daily `time`, weekday in the response's `timezone` |
+| Icon | 🌧️ | `--text-lg` | daily `weather_code`; unknown codes show 🌡️ |
+| Chance | "10%" | `--text-xs`, 600, `--color-chance` | daily `precipitation_probability_max`, only on rain, drizzle, snow and storm days |
+| Average | "60°" | `--text-md`, 700 | daily `temperature_2m_mean`, or the midpoint of low and high when it is missing |
+| Low–high | "50°–70°" | `--text-sm`, muted | daily `temperature_2m_min`, `temperature_2m_max` |
+| Wind · UV | "Wind 15 mph · UV 5" | `--text-sm`, muted, right-aligned | daily `wind_speed_10m_max` (km/h in metric), `uv_index_max` (whole number) |
+
+**Why these choices:**
+- The chance appears only on wet days, so a dry week shows no row of zeros. Blue marks it as precipitation without another label.
+- The average leads because it is one number to compare down the week. The range sits next to it, muted.
+- Wind and UV are the two daily readings people plan around (cycling, sunscreen) that the row doesn't show already. Sunrise and sunset change by only a minute or two a day, so they stay in the details grid.
+- It is a list, not a scroll strip: seven rows fit on a phone without hiding days off the edge.
+
 ### Search (ARIA combobox)
 
 | Element | State | Behaviour |
@@ -248,6 +271,7 @@ focus ring is drawn around the whole forecast section.
 
 - **Long place names** wrap (`overflow-wrap: anywhere`).
 - **Missing hourly data**: the forecast shows "Hourly forecast unavailable."
+- **Missing daily data**: the weekly forecast shows "Weekly forecast unavailable." A missing value in one row shows `--` (a single `--` for the range when either end is missing) or is left out (wind, UV, chance).
 - **Unknown weather code**: shown as "Weather" with a thermometer icon and a tone gradient.
 - **Precipitation, snow, humidity, visibility and UV** are clamped to zero or more.
 - **A missing or null detail** (some weather models leave out visibility, the daily block or `is_day`) shows `--` for that detail only. The weather still loads. Snowfall and "Raining now" stay hidden.
@@ -256,7 +280,7 @@ focus ring is drawn around the whole forecast section.
 - **Rate limited**: "Too many requests. Try again in N seconds."
 - **Storage blocked or empty**: every `localStorage` call is wrapped, and the page works without it.
 - **No JavaScript**: a notice explains the page needs it.
-- **Printing**: one A4 or Letter page, black on white with no backgrounds, 15mm margins, type at 87.5%. The map, marker, glass, search card, unit toggle, subtitle and animation switch are hidden. There is no card frame: the title, place, hero, details and forecast share one left edge, with single rules above and below the hero. Details are 4 plain columns with no dividers. The forecast is an even 6 × 2 grid with dividers only between columns. Day and night print the same.
+- **Printing**: one A4 or Letter page showing the result card as it looks on screen, always in the light theme (dark mode prints the same sheet), with the hero's colours printed (`print-color-adjust: exact`). 10mm margins, type at 80%. The map, marker, page title, search card, unit toggle and animation switch are hidden; the credits print under the card. The card is solid with a `--color-border` edge. Details are 5 columns, the hourly forecast shows all 12 hours in one row, and the weekly forecast keeps its rows. Re-run `print.spec.mjs` after any change to the result card.
 
 ## Accessibility
 
