@@ -280,7 +280,7 @@ focus ring is drawn around the whole forecast section.
 - **Rate limited**: "Too many requests. Try again in N seconds."
 - **Storage blocked or empty**: every `localStorage` call is wrapped, and the page works without it.
 - **No JavaScript**: a notice explains the page needs it.
-- **Printing**: one A4 or Letter page, black on white with no backgrounds, 15mm margins, type at 87.5%. The map, marker, glass, search card, unit toggle, subtitle and animation switch are hidden. There is no card frame: the title, place, hero, details and forecast share one left edge, with single rules above and below the hero. Details are 4 plain columns with no dividers. The forecast is an even 6 × 2 grid with dividers only between columns, without condition labels. The weekly forecast is 7 columns of three short lines each. Day and night print the same. The sheet fits a Letter page with only a few pixels left, so re-run `print.spec.mjs` after any change to the result card.
+- **Printing**: one A4 or Letter page showing the result card as it looks on screen, in the current light or dark theme, with the hero's colours printed (`print-color-adjust: exact`). 10mm margins, type at 80%. The map, marker, page title, search card, unit toggle and animation switch are hidden; the credits print under the card in dark grey. The card is solid with a `--color-border` edge. Details are 5 columns, the hourly forecast shows all 12 hours in one row, and the weekly forecast keeps its rows. Re-run `print.spec.mjs` after any change to the result card.
 
 ## Accessibility
 

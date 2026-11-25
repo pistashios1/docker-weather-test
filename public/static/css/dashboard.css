@@ -1190,32 +1190,32 @@ footer a { color: inherit; }
 .toast-close:hover { background: var(--color-surface-sunken); }
 
 /* ---------------------------------------------------------------------------
-   Print: just the weather, in black on white. No map, marker, glass or
-   controls, and no backgrounds (browsers skip them by default, which would
-   leave the hero's white text invisible).
+   Print: the result card as it looks on screen, in the visitor's light or
+   dark theme, hero colours included. The map, search, title and controls are
+   left off, and the forecasts are laid out to show every hour and day.
    --------------------------------------------------------------------------- */
 @media print {
+  /* Browsers drop backgrounds by default, which would leave the hero's white
+     text on white paper. */
   :root {
-    --color-bg: #fff;
-    --color-surface: #fff;
-    --color-surface-sunken: #fff;
-    --color-text: #000;
-    --color-muted: #333;
-    --color-chance: #000;
-    --color-border: #999;
-    --color-glass: #fff;
-    --color-glass-strong: #fff;
-    --color-glass-sheen: transparent;
-    --color-glass-edge: #999;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    /* No map behind the card on paper, so the glass is printed solid. */
+    --color-glass: var(--color-surface);
     --glass-blur: none;
     --shadow-glass: none;
     --shadow-card: none;
+    --color-on-paper: #333; /* text printed straight on the paper, in either theme */
+  }
+
+  html,
+  body {
+    background: none;
   }
 
   .map-bg,
+  .page-header,
   .search-card,
-  .segmented,
-  .subtitle,
   .toast,
   #map-toggle,
   #retry-button,
@@ -1223,102 +1223,48 @@ footer a { color: inherit; }
     display: none !important;
   }
 
-  @page { margin: 15mm; }
+  @page { margin: 10mm; }
 
-  /* Slightly smaller type so the whole sheet, footer included, fits one A4 or Letter page. */
-  html { font-size: 87.5%; }
+  /* Smaller type so the card and the credits fit one A4 or Letter page. */
+  html { font-size: 80%; }
 
   body { min-height: 0; }
 
-  footer { padding-bottom: 0; }
+  main { max-width: none; padding: 0; }
 
-  /* A plain sheet: no card frame, the page margin does the framing, and
-     sections are divided by single rules. Everything lines up on one left edge. */
-  main { max-width: none; padding: 0; gap: var(--space-3); }
+  footer {
+    padding: var(--space-3) 0 0;
+    color: var(--color-on-paper);
+  }
 
-  .page-header { padding-inline: var(--space-5); }
+  /* Five columns, so all nine tiles (snowfall included) take two rows. */
+  .details { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
+  .details > div { padding-inline: var(--space-4); }
+
+  /* The glass edge is near-white, so on white paper the card needs a real line. */
   .card {
-    border: 0;
-    border-radius: 0;
+    border-color: var(--color-border);
     break-inside: avoid;
   }
 
-  .hero,
-  #panel[data-daylight] .hero {
-    color: inherit;
-    background: none;
-    border-block: 1px solid var(--color-border);
-  }
-
-  .hero { padding-block: var(--space-3); }
-
-  .temperature { font-size: 4rem; }
-
-  /* Plain columns with no dividers: on paper the grid lines only add noise. */
-  .details { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-
-  .details > div {
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
-    border: 0;
-  }
-
-  /* Every hour in two even rows of six, divided only between columns, instead
-     of a scroll strip cut off at the page edge. */
+  /* All twelve hours in one row, instead of a strip cut off at the page edge. */
   .forecast {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    row-gap: var(--space-3);
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
   }
 
-  .forecast-card { min-height: 0; }
-
-  .forecast-card:nth-child(6n + 1) { border-inline-start: 0; }
-
-  /* On paper the hourly icon carries the condition; dropping the label makes
-     room for the week on the same page. */
-  .forecast-condition { display: none; }
-
-  .forecast-section { padding-block: var(--space-3); }
-
-  .forecast-heading { margin-bottom: var(--space-2); }
-
-  /* The week as seven short columns, like the hourly grid: day and icon, then
-     average and range, then wind and UV. */
-  .week-section { padding-bottom: 0; }
-
-  .week {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    line-height: 1.25;
-  }
-
-  .week-day {
-    grid-column: auto;
-    grid-template-columns: auto auto;
-    grid-template-areas: "name symbol" "temperature range" "extra extra";
-    justify-content: center;
-    column-gap: var(--space-1);
+  .forecast-card {
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 0;
-    padding: 0 var(--space-1);
-    border-top: 0;
-    border-inline-start: 1px solid var(--color-border);
-    text-align: center;
+    padding-inline: var(--space-1);
   }
 
-  .week-day:first-child { border-inline-start: 0; }
-
-  .week-name { grid-area: name; }
-  .week-symbol { grid-area: symbol; font-size: var(--text-md); line-height: inherit; }
-  .week-temperature { grid-area: temperature; font-size: var(--text-sm); }
-  .week-range { grid-area: range; font-size: var(--text-xs); }
-
-  .week-extra {
-    grid-area: extra;
-    justify-self: center;
-    font-size: var(--text-xs);
-    white-space: normal;
+  /* Week rows only need to be tall enough to read, not to tap. */
+  .week-day {
+    min-height: 0;
+    padding-block: var(--space-1);
   }
 }

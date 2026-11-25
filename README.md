@@ -102,7 +102,7 @@ names come from public services (see [Data sources](#data-sources-and-credits)).
 | Go back to a place you looked at | Click or tap the empty search box: your last five picks are listed under **Recent places**. |
 | Switch units | Use the **°F · mph** / **°C · km/h** toggle. Your choice is remembered in this browser. |
 | Stop the moving background | Turn off **Animate background** at the bottom of the page. It is also off automatically if your system asks for reduced motion. |
-| Print or save as PDF | Use your browser's print command. You get one black-on-white page with the place, current conditions, details, and the hourly and 7-day forecasts, without the map, search box or toggles. |
+| Print or save as PDF | Use your browser's print command. You get one page with the weather card as it looks on screen, in your light or dark theme: the place, current conditions, details, all twelve hours and the 7-day forecast, without the map, search box or toggles. |
 
 When the page opens it works out roughly where you are, in this order:
 

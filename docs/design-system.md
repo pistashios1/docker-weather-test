@@ -184,24 +184,25 @@ again; the floor is 4.5:1.
 
 ## Print
 
-`@media print` at the end of `dashboard.css` overrides the colour tokens to
-black on white and turns off blur and shadows, so the page prints the same in
-light and dark mode. The map, marker, search card, unit toggle, subtitle,
-toast, animation switch and **Try again** are hidden. The hero loses its
-gradient (day or night), because browsers skip backgrounds by default and its
-white text would vanish, and gets a top and bottom rule instead.
+`@media print` at the end of `dashboard.css` prints the result card as it looks
+on screen, in the visitor's light or dark theme. `print-color-adjust: exact`
+makes the browser print backgrounds, so the hero keeps its tone, condition and
+night gradient (otherwise its white text would land on white paper). The map,
+marker, page title, search card, unit toggle, toast, animation switch and
+**Try again** are hidden. The credits stay, under the card.
 
-The goal is one quiet sheet that fits a single A4 or Letter page:
+The goal is one sheet that fits a single A4 or Letter page, every optional row
+shown, in either theme:
 
 | Element | Print treatment |
 | --- | --- |
-| Page | `@page { margin: 15mm }`; root type at 87.5% |
-| Result card | No border, radius or shadow; the page margin is the frame |
-| Title | Indented `--space-5` to line up with the card content |
-| Hero | Smaller block padding (`--space-3`), temperature at 4rem |
-| Details | 4 fixed columns, no dividers |
-| Forecast | Even 6 × 2 grid; dividers between columns only (none at a row start); no condition label (the icon stays) |
-| Weekly forecast | 7 columns, each 3 short lines: day and icon, average and range, wind · UV; chance in black |
+| Page | `@page { margin: 10mm }`; root type at 80%; no page background, so the card sits on the paper |
+| Result card | As on screen, but solid (`--color-glass` is `--color-surface`, no blur or shadow) and edged with `--color-border`, since the glass edge vanishes on white paper |
+| Hero | As on screen |
+| Details | 5 fixed columns, so all 9 tiles take two rows |
+| Forecast | All 12 hours in one row, no edge fade |
+| Weekly forecast | As on screen; rows lose the 44 px minimum height (nothing to tap on paper) |
+| Credits | `--color-on-paper` (#333, print only), because they sit on the paper, not the card, even in dark mode |
 
 ## Do and don't
 
