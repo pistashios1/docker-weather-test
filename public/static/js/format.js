@@ -67,6 +67,14 @@ export const formatHour = (timestamp, timeZone) => {
     : date.toLocaleTimeString(undefined, { hour: "numeric", ...(timeZone ? { timeZone } : {}) });
 };
 
+// Short weekday ("Wed") of a daily timestamp, read in the place's own timezone.
+export const formatWeekday = (timestamp, timeZone) => {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : Number.NaN);
+  return Number.isNaN(date.valueOf())
+    ? "--"
+    : date.toLocaleDateString(undefined, { weekday: "short", ...(timeZone ? { timeZone } : {}) });
+};
+
 // Index of the hour that contains `now`. Open-Meteo's current time moves in
 // 15-minute steps (14:15), so this is the last hour at or before it.
 // -1 when every hour is later than `now`.

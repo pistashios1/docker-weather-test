@@ -247,6 +247,8 @@ OPTIONAL_CURRENT_FIELDS = (
 
 # Daily summaries. "time" is each day's local midnight as a Unix timestamp.
 DAILY_FIELDS = (
+    "weather_code",
+    "temperature_2m_mean",
     "temperature_2m_max",
     "temperature_2m_min",
     "sunrise",
@@ -255,13 +257,14 @@ DAILY_FIELDS = (
     "precipitation_sum",
     "precipitation_probability_max",
     "snowfall_sum",
+    "wind_speed_10m_max",
 )
 
 # The hourly series are cut to this many points (two days of hourly data).
 MAX_HOURLY_POINTS = 48
 
-# Today and tomorrow, matching forecast_days.
-MAX_DAILY_POINTS = 2
+# A week from today, matching forecast_days.
+MAX_DAILY_POINTS = 7
 
 
 def _validate_current(data: dict[str, Any]) -> dict[str, Any]:

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   conditionForCode, fahrenheitToCelsius, formatClock, formatCoordinates,
-  compassPoint, daylightStatus, forecastStartIndex, formatDuration, formatHour,
+  compassPoint, daylightStatus, forecastStartIndex, formatDuration, formatHour, formatWeekday,
   formatUtcOffset, hpaToInHg,
   metresToDistance, mphToKmh, toneForFahrenheit, uvCategory,
 } from "../../public/static/js/format.js";
@@ -40,6 +40,13 @@ test("Unix API timestamps are converted with the selected timezone", () => {
   assert.match(formatHour(utcTimestamp, "UTC"), /2/);
   assert.match(formatHour(utcTimestamp, "America/New_York"), /9/);
   assert.match(formatClock(utcTimestamp, "UTC"), /2:00/);
+});
+
+test("formatWeekday reads the day in the place's timezone", () => {
+  const saturdayMidnightUtc = 1794614400;
+  assert.match(formatWeekday(saturdayMidnightUtc, "UTC"), /Sat/);
+  assert.match(formatWeekday(saturdayMidnightUtc, "America/New_York"), /Fri/);
+  assert.equal(formatWeekday(null), "--");
 });
 
 test("formatClock honours an explicit time zone for dates", () => {

@@ -198,3 +198,42 @@ test("offline, the refresh waits for the connection instead of showing an error"
   await expect.poll(() => requests.weather).toBe(2);
   await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
 });
+
+test("the weekly forecast lists seven days with average, low-high, wind and UV", async ({ page }) => {
+  await mockApi(page, { location: LONDON });
+  await page.goto("/");
+  const days = page.locator("#week .week-day");
+  await expect(days).toHaveCount(7);
+
+  await expect(days.locator(".week-name")).toHaveText(["Today", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]);
+  await expect(days.nth(0)).toHaveText(
+    "Today ⛅Partly cloudy Average 56° low 48°–, high 66° Wind 12 mph · UV 4",
+  );
+  // A chance only on rain, snow and storm days, never on a clear or cloudy one.
+  await expect(days.locator(".week-chance")).toHaveText(["10% chance", "80% chance", "60% chance", "90% chance"]);
+  await expect(days.nth(3).locator(".week-chance")).toHaveCount(0);
+
+  await page.locator('input[name="units"][value="metric"]').check();
+  await expect(days.nth(0).locator(".week-temperature")).toHaveText("Average 13°");
+  await expect(days.nth(0).locator(".week-range")).toHaveText("low 9°–, high 19°");
+  await expect(days.nth(0).locator(".week-extra")).toHaveText("Wind 19 km/h · UV 4");
+});
+
+test("the weekly forecast falls back to the low-high midpoint and to -- for gaps", async ({ page }) => {
+  await mockApi(page, {
+    location: LONDON,
+    weather: { daily: { temperature_2m_mean: [], wind_speed_10m_max: [null], uv_index_max: [] } },
+  });
+  await page.goto("/");
+  const today = page.locator("#week .week-day").first();
+  await expect(today.locator(".week-temperature")).toHaveText("Average 57°");
+  await expect(today.locator(".week-extra")).toHaveText("");
+  await expect(page.locator("#week .week-day").nth(1).locator(".week-temperature")).toHaveText("Average 60°");
+});
+
+test("without daily data the weekly forecast says it is unavailable", async ({ page }) => {
+  await mockApi(page, { location: LONDON, weather: { daily: { time: [] } } });
+  await page.goto("/");
+  await expect(page.locator("#week")).toHaveText("Weekly forecast unavailable.");
+  await expect(text(page, "temp-high")).toHaveText("--");
+});

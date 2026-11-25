@@ -44,6 +44,10 @@ test("the printout fits one page, even at night with every optional row shown", 
     (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
   );
   expect(columns).toBe(6);
+  const weekColumns = await page.locator("#week").evaluate(
+    (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+  );
+  expect(weekColumns).toBe(7);
 
   for (const format of ["A4", "Letter"]) {
     const pdf = (await page.pdf({ format, preferCSSPageSize: true })).toString("latin1");

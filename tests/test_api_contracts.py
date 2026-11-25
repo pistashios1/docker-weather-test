@@ -642,12 +642,29 @@ def test_weather_rejects_an_optional_current_detail_that_is_not_a_number(value):
     _rejects(payload, "weather field pressure_msl is invalid")
 
 
-def test_weather_daily_is_trimmed_to_two_days_and_keeps_nulls():
+def test_weather_daily_keeps_nulls():
     daily = validate_weather_response(_weather(daily=copy.deepcopy(DAILY)))["daily"]
 
-    assert daily["time"] == DAILY["time"][:2]
-    assert daily["uv_index_max"] == [2.5, None]
-    assert daily["precipitation_probability_max"] == [40, 10]
+    assert daily["time"] == DAILY["time"]
+    assert daily["uv_index_max"] == [2.5, None, 3.0]
+    assert daily["precipitation_probability_max"] == [40, 10, 5]
+
+
+def test_weather_daily_is_trimmed_to_a_week_and_keeps_the_weekly_series():
+    days = range(9)
+    daily = {
+        "time": [1794603600 + day * 86400 for day in days],
+        "weather_code": [61 for _ in days],
+        "temperature_2m_mean": [40.5 for _ in days],
+        "wind_speed_10m_max": [12.0 for _ in days],
+    }
+
+    result = validate_weather_response(_weather(daily=daily))["daily"]
+
+    assert result["time"] == daily["time"][:7]
+    assert result["weather_code"] == [61] * 7
+    assert result["temperature_2m_mean"] == [40.5] * 7
+    assert result["wind_speed_10m_max"] == [12.0] * 7
 
 
 def test_weather_daily_drops_unknown_series_and_allows_missing_ones():

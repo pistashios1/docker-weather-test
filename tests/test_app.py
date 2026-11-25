@@ -245,6 +245,10 @@ def test_weather_returns_current_conditions():
     assert "uv_index" in upstream_params["current"].split(",")
     assert "uv_index_max" in upstream_params["daily"].split(",")
     assert "precipitation_probability_max" in upstream_params["daily"].split(",")
+    assert {"weather_code", "temperature_2m_mean", "wind_speed_10m_max"} <= set(
+        upstream_params["daily"].split(",")
+    )
+    assert upstream_params["forecast_days"] == 7
     assert upstream_params["timezone"] == "auto"
     assert upstream_params["timeformat"] == "unixtime"
 
