@@ -237,3 +237,11 @@ test("without daily data the weekly forecast says it is unavailable", async ({ p
   await expect(page.locator("#week")).toHaveText("Weekly forecast unavailable.");
   await expect(text(page, "temp-high")).toHaveText("--");
 });
+
+test("a day missing its low or high shows one -- for the range", async ({ page }) => {
+  await mockApi(page, { location: LONDON, weather: { daily: { temperature_2m_min: [48, null, 52, 47, 31, 41, 45] } } });
+  await page.goto("/");
+  const range = page.locator("#week .week-day .week-range");
+  await expect(range.nth(1)).toHaveText("--");
+  await expect(range.nth(2)).toHaveText("low 52°–, high 72°");
+});

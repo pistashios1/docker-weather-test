@@ -35,8 +35,9 @@ test("printing shows the result card as on screen, without the map, title or con
   expect(forecast).toBe(true);
 });
 
+// Print always uses the light palette, so a dark-mode visitor gets the same sheet.
 for (const colorScheme of ["light", "dark"]) {
-  test(`the ${colorScheme} printout fits one page, even at night with every optional row shown`, async ({ page }) => {
+  test(`printing from ${colorScheme} mode gives one light page, even at night with every optional row shown`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await mockApi(page, {
       location: LONDON,
@@ -46,6 +47,11 @@ for (const colorScheme of ["light", "dark"]) {
     await expect(page.locator("#snow-row")).toBeVisible();
 
     await page.emulateMedia({ media: "print", colorScheme });
+    const colours = await page.locator("#panel").evaluate((element) => ({
+      text: getComputedStyle(element).color,
+      background: getComputedStyle(element).backgroundColor,
+    }));
+    expect(colours).toEqual({ text: "rgb(23, 33, 43)", background: "rgb(255, 255, 255)" });
     // Nine tiles in two rows of five.
     const columns = await page.locator(".details").evaluate(
       (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,

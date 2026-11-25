@@ -147,7 +147,10 @@ const renderWeek = (data, metric) => {
         span("week-name", index === today ? "Today" : formatWeekday(time, data.timezone)),
         symbol,
         span("week-temperature", spoken("Average "), degrees(mean)),
-        span("week-range", spoken("low "), degrees(low), shown("–"), spoken(", high "), degrees(high)),
+        // One "--" when either end is missing, not a "--–--" run of dashes.
+        isNumber(low) && isNumber(high)
+          ? span("week-range", spoken("low "), degrees(low), shown("–"), spoken(", high "), degrees(high))
+          : span("week-range", "--"),
         span("week-extra", extras.join(" · ")),
       ];
       row.append(...parts.flatMap((part, at) => (at ? [" ", part] : [part])));

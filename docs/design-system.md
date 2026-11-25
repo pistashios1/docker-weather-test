@@ -121,6 +121,7 @@ again; the floor is 4.5:1.
 | `--space-1` … `--space-6` | 0.25, 0.5, 0.75, 1, 1.5, 2.5 rem |
 | `--radius-sm` / `-md` / `-pill` | 0.4rem / 0.75rem / 999px |
 | `--column-width` | 56rem |
+| `--touch-target` | 2.75rem (44 px): minimum height of every control and week row, and the toast close button's size |
 | `--shadow-card` | Card elevation |
 | `--shadow-glass` | Glass card elevation (shadow plus top highlight) |
 | `--fade-size` | 2.5rem, width of the forecast's scroll-edge fade |
@@ -143,7 +144,7 @@ again; the floor is 4.5:1.
 | Details grid | `.details` | 8 tiles, plus Snowfall when snow is falling or expected today | value (`--text-md`, or `.detail-big` at `--text-lg` for single numbers), sub-line (`.detail-sub`), hidden rows, `--` for a missing value; no rule between the grid and the forecast (last-row lines clipped) |
 | Daylight bar | `.daylight-track`, `.daylight-fill` | one | shown while the sun is up, filled to the share of daylight gone (`--daylight`, 0–1); hidden before sunrise, after sunset and when times are missing |
 | Forecast card | `.forecast-card` | one | n/a |
-| Weekly forecast | `.week`, `.week-day` | one row per day, up to 7 from today | first row reads "Today"; rain/snow/storm days add a `.week-chance` ("60%") in `--color-chance` beside the icon; average falls back to the low–high midpoint; wind · UV line is empty when both are missing; "Weekly forecast unavailable." with no daily data; on narrow the wind · UV line wraps under the temperatures |
+| Weekly forecast | `.week`, `.week-day` | one row per day, up to 7 from today | first row reads "Today"; rain/snow/storm days add a `.week-chance` ("60%") in `--color-chance` beside the icon; average falls back to the low–high midpoint; the range is a single `--` when either end is missing; without subgrid support rows fall back to fixed column widths; wind · UV line is empty when both are missing; "Weekly forecast unavailable." with no daily data; on narrow the wind · UV line wraps under the temperatures |
 | Forecast edge fade | `.forecast[data-fade-start]`, `[data-fade-end]` | one | start, middle, end of the scroll; absent when nothing overflows |
 | Toast | `.toast`, `#toast` | one | shown, dismissed (button or after 8 s); close button hover |
 | Footer | `footer` | one | credits and the animation switch; credits wrap under 36rem |
@@ -185,14 +186,17 @@ again; the floor is 4.5:1.
 ## Print
 
 `@media print` at the end of `dashboard.css` prints the result card as it looks
-on screen, in the visitor's light or dark theme. `print-color-adjust: exact`
-makes the browser print backgrounds, so the hero keeps its tone, condition and
-night gradient (otherwise its white text would land on white paper). The map,
+on screen in the light theme, whatever the visitor's setting: the dark tokens
+sit in `@media screen and (prefers-color-scheme: dark)`, so dark-theme text
+never reaches paper. `print-color-adjust: exact` makes the browser print
+backgrounds, so the hero keeps its tone, condition and night gradient. If a
+printer drops backgrounds anyway, only the hero's white text is lost; the rest
+of the card stays dark on white. The map,
 marker, page title, search card, unit toggle, toast, animation switch and
 **Try again** are hidden. The credits stay, under the card.
 
 The goal is one sheet that fits a single A4 or Letter page, every optional row
-shown, in either theme:
+shown:
 
 | Element | Print treatment |
 | --- | --- |
@@ -201,8 +205,8 @@ shown, in either theme:
 | Hero | As on screen |
 | Details | 5 fixed columns, so all 9 tiles take two rows |
 | Forecast | All 12 hours in one row, no edge fade |
+| Forecast labels | About 51 px wide; "Thunderstorm" carries a soft hyphen so it breaks as "Thunder-storm" |
 | Weekly forecast | As on screen; rows lose the 44 px minimum height (nothing to tap on paper) |
-| Credits | `--color-on-paper` (#333, print only), because they sit on the paper, not the card, even in dark mode |
 
 ## Do and don't
 

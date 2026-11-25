@@ -25,7 +25,7 @@ test("conditionForCode maps WMO codes and falls back", () => {
   assert.equal(conditionForCode(53).key, "rain");
   assert.equal(conditionForCode(81).label, "Rain");
   assert.equal(conditionForCode(75).label, "Snow");
-  assert.equal(conditionForCode(99).label, "Thunderstorm");
+  assert.equal(conditionForCode(99).label, "Thunder\u00adstorm"); // soft hyphen, shown only at a line break
   assert.equal(conditionForCode(4).key, "unknown");
   assert.equal(conditionForCode(undefined).key, "unknown");
 });

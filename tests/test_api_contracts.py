@@ -202,6 +202,36 @@ def test_weather_still_requires_every_hourly_timestamp():
     _rejects(payload, "weather hourly timestamps are invalid")
 
 
+def test_weather_ignores_bad_values_in_hours_that_are_not_served():
+    hours = range(60)
+    payload = _weather(
+        hourly={
+            "time": [1794625200 + hour * 3600 for hour in hours],
+            "temperature_2m": [40.0 for _ in hours],
+            "weather_code": [3 for _ in hours],
+        }
+    )
+    payload["hourly"]["temperature_2m"][55] = "hot"
+    payload["hourly"]["time"][50] = None
+
+    hourly = validate_weather_response(payload)["hourly"]
+
+    assert len(hourly["time"]) == 48
+    assert hourly["temperature_2m"] == [40.0] * 48
+
+
+def test_weather_rejects_hourly_series_of_different_lengths_beyond_the_window():
+    hours = range(60)
+    payload = _weather(
+        hourly={
+            "time": [1794625200 + hour * 3600 for hour in hours],
+            "temperature_2m": [40.0 for _ in hours],
+            "weather_code": [3 for _ in range(59)],
+        }
+    )
+    _rejects(payload, "weather hourly data is incomplete")
+
+
 def test_weather_checks_hourly_temperatures_before_hourly_codes():
     payload = _weather()
     payload["hourly"]["temperature_2m"][0] = "x"

@@ -271,7 +271,7 @@ focus ring is drawn around the whole forecast section.
 
 - **Long place names** wrap (`overflow-wrap: anywhere`).
 - **Missing hourly data**: the forecast shows "Hourly forecast unavailable."
-- **Missing daily data**: the weekly forecast shows "Weekly forecast unavailable." A missing value in one row shows `--` (temperatures) or is left out (wind, UV, chance).
+- **Missing daily data**: the weekly forecast shows "Weekly forecast unavailable." A missing value in one row shows `--` (a single `--` for the range when either end is missing) or is left out (wind, UV, chance).
 - **Unknown weather code**: shown as "Weather" with a thermometer icon and a tone gradient.
 - **Precipitation, snow, humidity, visibility and UV** are clamped to zero or more.
 - **A missing or null detail** (some weather models leave out visibility, the daily block or `is_day`) shows `--` for that detail only. The weather still loads. Snowfall and "Raining now" stay hidden.
@@ -280,7 +280,7 @@ focus ring is drawn around the whole forecast section.
 - **Rate limited**: "Too many requests. Try again in N seconds."
 - **Storage blocked or empty**: every `localStorage` call is wrapped, and the page works without it.
 - **No JavaScript**: a notice explains the page needs it.
-- **Printing**: one A4 or Letter page showing the result card as it looks on screen, in the current light or dark theme, with the hero's colours printed (`print-color-adjust: exact`). 10mm margins, type at 80%. The map, marker, page title, search card, unit toggle and animation switch are hidden; the credits print under the card in dark grey. The card is solid with a `--color-border` edge. Details are 5 columns, the hourly forecast shows all 12 hours in one row, and the weekly forecast keeps its rows. Re-run `print.spec.mjs` after any change to the result card.
+- **Printing**: one A4 or Letter page showing the result card as it looks on screen, always in the light theme (dark mode prints the same sheet), with the hero's colours printed (`print-color-adjust: exact`). 10mm margins, type at 80%. The map, marker, page title, search card, unit toggle and animation switch are hidden; the credits print under the card. The card is solid with a `--color-border` edge. Details are 5 columns, the hourly forecast shows all 12 hours in one row, and the weekly forecast keeps its rows. Re-run `print.spec.mjs` after any change to the result card.
 
 ## Accessibility
 
