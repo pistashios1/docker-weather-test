@@ -203,7 +203,8 @@ def _session() -> requests.Session:
         backoff_factor=0.2,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=frozenset({"GET"}),
-        respect_retry_after_header=True,
+        # A provider's Retry-After can be an hour; sleeping it out would hold a worker thread.
+        respect_retry_after_header=False,
     )
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)

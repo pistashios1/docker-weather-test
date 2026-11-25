@@ -881,3 +881,12 @@ def test_search_every_part_after_a_comma_must_match():
 
     assert [r["context"] for r in results] == ["Illinois, United States"]
     assert get.call_args.kwargs["params"]["name"] == "Springfield"
+
+
+def test_provider_retries_ignore_retry_after():
+    # An uncapped Retry-After (e.g. 3600 s) would hold a worker thread for its whole length.
+    from app.weather_app import _session
+
+    retry = _session().get_adapter("https://example.com").max_retries
+    assert retry.total == 1
+    assert retry.respect_retry_after_header is False
