@@ -69,8 +69,8 @@ export const formatHour = (timestamp, timeZone) => {
 
 // Index of the hour that contains `now`. Open-Meteo's current time moves in
 // 15-minute steps (14:15), so this is the last hour at or before it.
-export const forecastStartIndex = (times, now) =>
-  Math.max(0, times.findLastIndex((time) => time <= now));
+// -1 when every hour is later than `now`.
+export const forecastStartIndex = (times, now) => times.findLastIndex((time) => time <= now);
 
 // "3 h 24 min", "45 min", "2 h"; anything under a minute reads "under a minute".
 export const formatDuration = (seconds) => {

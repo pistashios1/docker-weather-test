@@ -306,6 +306,11 @@ def _require_numbers(values: list[Any], message: str) -> None:
         raise InvalidUpstreamPayload(message)
 
 
+def _require_numbers_or_null(values: list[Any], message: str) -> None:
+    """Like _require_numbers, but null entries are allowed."""
+    _require_numbers([value for value in values if value is not None], message)
+
+
 def _validate_hourly(data: dict[str, Any]) -> dict[str, list[Any]]:
     """Validate and trim Open-Meteo hourly weather data.
 
@@ -335,8 +340,9 @@ def _validate_hourly(data: dict[str, Any]) -> dict[str, list[Any]]:
     if not times or len(times) != len(temperatures) or len(times) != len(weather_codes):
         raise InvalidUpstreamPayload("weather hourly data is incomplete")
     _require_numbers(times, "weather hourly timestamps are invalid")
-    _require_numbers(temperatures, "weather hourly temperatures are invalid")
-    _require_numbers(weather_codes, "weather hourly codes are invalid")
+    # A model can leave single hours empty (null); the page shows "--" for those.
+    _require_numbers_or_null(temperatures, "weather hourly temperatures are invalid")
+    _require_numbers_or_null(weather_codes, "weather hourly codes are invalid")
     return {
         "time": times[:MAX_HOURLY_POINTS],
         "temperature_2m": temperatures[:MAX_HOURLY_POINTS],

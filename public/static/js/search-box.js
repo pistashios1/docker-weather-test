@@ -55,9 +55,14 @@ export function createSearchBox({
   let controller = null;
   let pickWhenReady = false; // Enter or Search was pressed before results arrived
   let lastPointer = "mouse";
+  let pressingSubmit = false; // a pointer is down on the form's Search button
   let cache = [];
 
   const isOpen = () => !popup.hidden;
+  // The form's own Search button picks the highlighted option, so pressing it
+  // must not close the list (which clears the highlight) before submit runs.
+  const isOwnSubmit = (element) =>
+    Boolean(input.form) && element?.closest?.('[type="submit"]')?.form === input.form;
   const currentQuery = () => input.value.trim();
   const cacheKey = (query) => `${query.toLocaleLowerCase()}|${cacheContext()}`;
 
@@ -221,6 +226,7 @@ export function createSearchBox({
 
   // Enter or the Search button: pick the highlighted option, or the best match.
   const submit = () => {
+    pressingSubmit = false;
     const query = currentQuery();
     if (activeIndex >= 0 && isOpen()) {
       choose(activeIndex);
@@ -265,7 +271,8 @@ export function createSearchBox({
   // Tabbing to another control closes the list. Losing focus to nothing (for
   // example closing a phone keyboard) keeps it open so the results can be read.
   input.addEventListener("blur", (event) => {
-    if (event.relatedTarget && !popup.contains(event.relatedTarget)) close();
+    const to = event.relatedTarget;
+    if (to && !popup.contains(to) && !(pressingSubmit && isOwnSubmit(to))) close();
   });
 
   input.addEventListener("keydown", (event) => {
@@ -287,7 +294,8 @@ export function createSearchBox({
 
   document.addEventListener("pointerdown", (event) => {
     lastPointer = event.pointerType || "mouse";
-    if (isOpen() && !popup.contains(event.target) && event.target !== input) close();
+    pressingSubmit = isOwnSubmit(event.target);
+    if (isOpen() && !popup.contains(event.target) && event.target !== input && !pressingSubmit) close();
   });
 
   // A mouse press keeps focus in the field. Touch is left alone, so a swipe

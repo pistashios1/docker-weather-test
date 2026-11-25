@@ -64,7 +64,7 @@ test("forecastStartIndex picks the hour that contains the current time", () => {
   const hours = [0, 3600, 7200, 10800];
   assert.equal(forecastStartIndex(hours, 3600), 1); // exactly on the hour
   assert.equal(forecastStartIndex(hours, 3600 + 15 * 60), 1); // 15 minutes past
-  assert.equal(forecastStartIndex(hours, -60), 0); // before the first hour
+  assert.equal(forecastStartIndex(hours, -60), -1); // before the first hour
 });
 
 test("compassPoint names the 16 wind directions and wraps around", () => {
