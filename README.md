@@ -433,12 +433,14 @@ If you build your own image, make sure it copies the `public` folder (the Docker
 app/
   weather_app.py           Flask app: routes, caching, rate limiting
   api_contracts.py         Validation of provider responses and API shapes
+  search_ranking.py        Search result ranking (relevance, distance, population, recent picks)
   templates/
     weather_dashboard.html Page markup
 public/static/             Served at /static (by Vercel's CDN, or by Flask locally)
   css/dashboard.css        Styles, design tokens and print layout
   css/map-marker.css       Location marker on the background map
-  js/dashboard.js          Page logic: location, rendering, units
+  js/dashboard.js          Page logic: state, location flow, search, units
+  js/render.js             Writes a /weather payload into the hero, details and forecast
   js/search-box.js         Accessible city search (ARIA combobox)
   js/format.js             Units, compass points, weather-code labels, number and time formatting
   js/map-marker.js         Places the marker on the map from the weather coordinates

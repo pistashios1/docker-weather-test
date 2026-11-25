@@ -52,7 +52,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 
 ### Hero palette
 
-The result panel's gradient is set by two attributes written by `dashboard.js`:
+The result panel's gradient is set by two attributes written by `render.js`:
 `data-tone` (temperature: freezing, cool, mild, warm, hot) and
 `data-condition` (clear, cloudy, rain, snow, storm, fog). The condition wins
 when both are present. Each defines `--tone-a` and `--tone-b`. White text on

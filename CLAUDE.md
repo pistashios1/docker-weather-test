@@ -12,7 +12,7 @@ Read these before working here:
 `python` and `ruff` are not on PATH. Use the venv binaries. These forms work in Git Bash and in PowerShell.
 
 ```bash
-.venv/Scripts/python -m pytest
+.venv/Scripts/python -m pytest                     # add --cov for the 95% coverage floor CI enforces
 .venv/Scripts/ruff check .
 node --test "tests/js/*.test.mjs"
 cd tests/e2e && npx playwright test
@@ -32,7 +32,7 @@ cd tests/e2e && npx playwright install chromium   # first run or after a Playwri
 - The backend always requests °F and mph. The browser converts units in `format.js`.
 - Adding a current field: update the `current=` string in `weather_app.py` and `CURRENT_FIELDS` or `OPTIONAL_CURRENT_FIELDS` in `api_contracts.py`.
 - Adding a daily field: add it to `DAILY_FIELDS` only, because the request is built from that tuple.
-- For either kind of field, also update the Python tests, `weatherPayload` in `tests/e2e/helpers.mjs`, the rendering in `dashboard.js`, and the README's `/weather` example.
+- For either kind of field, also update the Python tests, `weatherPayload` in `tests/e2e/helpers.mjs`, the rendering in `render.js`, and the README's `/weather` example.
 - Keep the two import lists in `weather_app.py` (`if __package__` / `else`) identical.
 - Keep `requirements.txt` and `pyproject.toml` versions identical (a test enforces it). `gunicorn` lives only in `requirements.txt`, because Vercel doesn't use it.
 - Caches and the rate limiter are in memory, per process. They aren't shared between workers or Vercel instances.
