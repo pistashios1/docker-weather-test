@@ -133,3 +133,68 @@ test("after sunset it counts down to tomorrow's sunrise", async ({ page }) => {
 
   await expect(text(page, "daylight-left")).toHaveText("Sunrise in 11 h");
 });
+
+// Stale-weather refresh: a controlled clock, a /weather request counter, and a
+// switch for document.visibilityState (headless tabs are always "visible").
+const watchRefresh = async (page) => {
+  await page.addInitScript(() => {
+    window.__tabHidden = false;
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (window.__tabHidden ? "hidden" : "visible"),
+    });
+  });
+  await page.clock.install({ time: at(12) });
+  await mockApi(page, { location: LONDON });
+  const requests = { weather: 0 };
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/weather") requests.weather += 1;
+  });
+  await page.goto("/");
+  await expect(text(page, "location-name")).toHaveText("London, England");
+  return requests;
+};
+// A refresh sets the loading state synchronously, so reading it straight after is exact.
+const panelState = (page) => page.evaluate(() => document.getElementById("panel").dataset.state);
+const setTabHidden = (page, hidden) =>
+  page.evaluate((value) => {
+    window.__tabHidden = value;
+    document.dispatchEvent(new Event("visibilitychange"));
+    return document.getElementById("panel").dataset.state;
+  }, hidden);
+
+test("returning to the tab reloads the weather once it is over 10 minutes old", async ({ page }) => {
+  const requests = await watchRefresh(page);
+
+  await setTabHidden(page, true);
+  await page.clock.runFor(5 * 60_000);
+  expect(await setTabHidden(page, false)).toBe("ready"); // 5 min: still fresh
+
+  await setTabHidden(page, true);
+  await page.clock.runFor(11 * 60_000); // the timer skips a hidden tab
+  expect(requests.weather).toBe(1);
+  expect(await setTabHidden(page, false)).toBe("loading");
+  await expect.poll(() => requests.weather).toBe(2);
+  await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
+});
+
+test("a tab that stays on screen reloads the weather every 10 minutes", async ({ page }) => {
+  const requests = await watchRefresh(page);
+
+  await page.clock.runFor(9 * 60_000);
+  expect(await panelState(page)).toBe("ready");
+  await page.clock.runFor(2 * 60_000);
+  await expect.poll(() => requests.weather).toBe(2);
+});
+
+test("offline, the refresh waits for the connection instead of showing an error", async ({ page, context }) => {
+  const requests = await watchRefresh(page);
+
+  await context.setOffline(true);
+  await page.clock.runFor(11 * 60_000);
+  expect(await panelState(page)).toBe("ready"); // old weather stays, no error
+
+  await context.setOffline(false); // fires "online"
+  await expect.poll(() => requests.weather).toBe(2);
+  await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
+});
