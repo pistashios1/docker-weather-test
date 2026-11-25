@@ -105,6 +105,16 @@ test("the sunset tile counts down the daylight and fills its bar", async ({ page
   expect(fill).toBeCloseTo(5 / 9.5, 2);
 });
 
+test("the daylight countdown keeps ticking while the page stays open", async ({ page }) => {
+  await page.clock.install({ time: at(12).getTime() - 30_000 }); // 4 h 30 min 30 s left
+  await mockApi(page, { location: LONDON });
+  await page.goto("/");
+  await expect(text(page, "daylight-left")).toHaveText("4 h 30 min of daylight left");
+
+  await page.clock.runFor(60_000);
+  await expect(text(page, "daylight-left")).toHaveText("4 h 29 min of daylight left");
+});
+
 test("before sunrise the sunset tile counts down to sunrise and hides the bar", async ({ page }) => {
   await page.clock.setFixedTime(at(5));
   await mockApi(page, { location: LONDON });
