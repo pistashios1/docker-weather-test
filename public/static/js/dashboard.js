@@ -527,11 +527,15 @@ retryButton.addEventListener("click", () => {
 });
 
 // The page loads the weather once per place, so a tab left open (or restored
-// with Back) would keep showing an old reading. Reload it when the visitor returns.
+// with Back) would keep showing an old reading. Reload it when the visitor returns,
+// and every few minutes on a tab that stays on screen (a wall display).
+// Only while weather is shown: an error waits for Try again instead of retrying every minute.
+// Offline (a laptop just waking) waits for the "online" event instead of showing an error.
 const refreshIfStale = () => {
   if (
     document.visibilityState === "visible" &&
-    lastData &&
+    navigator.onLine !== false &&
+    panel.dataset.state === "ready" &&
     !busy &&
     Date.now() - lastDataLoadedAt > WEATHER_STALE_MS
   ) {
@@ -539,9 +543,11 @@ const refreshIfStale = () => {
   }
 };
 document.addEventListener("visibilitychange", refreshIfStale);
+window.addEventListener("online", refreshIfStale);
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) refreshIfStale();
 });
+setInterval(refreshIfStale, 60 * 1000);
 
 unitRadios.forEach((radio) => {
   radio.addEventListener("change", () => {
