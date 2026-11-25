@@ -95,7 +95,7 @@ hear "High 66°, Low 48°": the "H:" and "L:" letters are `aria-hidden`, and
 visually hidden words "High" and "Low" take their place.
 
 - **Feels like** is `apparent_temperature`. **High / Low** are today's `temperature_2m_max` / `_min`. All three follow the unit toggle.
-- **Wind direction** is where the wind comes from, as one of 16 compass points ("from SW"). The arrow points the opposite way, which is where the wind is blowing. It is rotated by `--wind-rotate` (set by `dashboard.js`), is `aria-hidden`, and is hidden when the direction is missing.
+- **Wind direction** is where the wind comes from, as one of 16 compass points ("from SW"). The arrow points the opposite way, which is where the wind is blowing. It is rotated by `--wind-rotate` (set by `render.js`), is `aria-hidden`, and is hidden when the direction is missing.
 - **Day and night** follow Open-Meteo's `is_day` (`data-daylight="day"` or `"night"` on `#panel`; missing means day).
   - **Day:** the tone gradient with a soft sun glow at the top right, behind the high/low.
   - **Night:** the same tone shaded 40% toward navy (`--color-night-shade`), a moon (a 16% white disc with a 5% halo) and four 1px stars. They are kept in the middle of the banner (the moon at 64% across, 30% down), so nothing sits behind the high/low.
@@ -149,7 +149,7 @@ They are worked out by `daylightStatus()` in `format.js`.
 | Polar day or night (sunset not after sunrise), or times missing | `--` | Hidden |
 
 - **Durations** read "3 h 24 min", "45 min" or "2 h", and "under a minute" at the end.
-- **The bar** is 0.375rem tall, a `--radius-pill` track in `--color-border` with a `--color-primary` fill. Its width comes from `--daylight` (0–1), which `dashboard.js` sets. It is `aria-hidden`, because the sub-line already says the same thing in words.
+- **The bar** is 0.375rem tall, a `--radius-pill` track in `--color-border` with a `--color-primary` fill. Its width comes from `--daylight` (0–1), which `render.js` sets. It is `aria-hidden`, because the sub-line already says the same thing in words.
 - **"Today" here** is worked out from the live clock, not the weather's timestamp, so a page left open past midnight moves on to the next day's times.
 
 **Why these choices:**

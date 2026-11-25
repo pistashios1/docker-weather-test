@@ -18,3 +18,12 @@ target-version = "py313"
 # Pyflakes/pycodestyle errors, import order, bugbear, pyupgrade, and pylint's
 # warning rules (this is where os.environ.get(..., 5) is caught).
 select = ["E4", "E7", "E9", "F", "I", "B", "UP", "PLW", "PLR0402"]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+# Applies to `pytest --cov` (CI). 96% when this floor was set.
+fail_under = 95
+show_missing = true
+skip_covered = true
