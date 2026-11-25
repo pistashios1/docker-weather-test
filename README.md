@@ -19,7 +19,7 @@ and hourly forecasts from Open-Meteo API for any city or your current location.
 - Prints cleanly on one page (Ctrl+P / Cmd+P).
 - Runs locally with Python or Docker. No account or API key is required.
 
-![Weather Lookup dashboard for New York: the hero banner with temperature, feels-like, today's high and low in the top-right corner and wind direction, a grid of weather details including sunrise and a sunset daylight countdown, a twelve-hour forecast, a 7-day forecast with rain chances, and the city search controls](docs/dashboard.png)
+![Weather Lookup dashboard for Budapest on a snowy day: the hero banner with temperature, feels-like, today's high and low in the top-right corner and wind direction, a grid of weather details including today's snowfall, sunrise, and a sunset daylight countdown with its progress bar, a twelve-hour forecast moving from drizzle to snow, a 7-day forecast with snow and rain chances, and the city search controls](docs/dashboard.png)
 *The dashboard (New York in the afternoon, dark mode).*
 
 ## Try it in two minutes
