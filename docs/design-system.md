@@ -34,6 +34,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-border` | `#c4d1db` | `#2e3f4e` | Decorative dividers only |
 | `--color-border-strong` | `#7a8995` | `#6b7f90` | Control boundaries (3:1) |
 | `--color-primary` / `-hover` | `#1769aa` / `#12578f` | `#5eb1f0` / `#82c3f5` | Buttons, selection, focus |
+| `--color-chance` | `#12578f` | `#82c3f5` | Rain/snow chance in the weekly forecast (it aliases `--color-primary-hover`) |
 | `--color-on-primary` | `#ffffff` | `#08202f` | Text on primary |
 | `--color-danger` / `-bg` | `#b42318` / `#fef3f2` | `#ff9a8f` / `#3a1a17` | Error text and panel |
 | `--color-focus-ring` | 60 % `#1769aa` | 60 % `#82c3f5` | Every focus ring: 3 px outline |
@@ -105,6 +106,10 @@ muted text), which is why it is dimmer in dark mode.
 | Light | 4.6:1 | Subtitle on the bare page (a map line passes behind it) |
 | Dark | 4.8:1 | Location line on glass with the marker behind it |
 
+`--color-chance` was not run through the probe. It was worked out from the
+worst backgrounds above: about 5.4:1 in light mode and 5.6:1 in dark mode.
+Plain `--color-primary` would be about 4.1:1 in light mode, below the floor.
+
 Before this change the dark-mode figure with a full-strength marker was 3.0:1.
 If you change `--color-glass`, `--glass-blur` or `--marker-opacity`, measure
 again; the floor is 4.5:1.
@@ -116,6 +121,7 @@ again; the floor is 4.5:1.
 | `--space-1` … `--space-6` | 0.25, 0.5, 0.75, 1, 1.5, 2.5 rem |
 | `--radius-sm` / `-md` / `-pill` | 0.4rem / 0.75rem / 999px |
 | `--column-width` | 56rem |
+| `--touch-target` | 2.75rem (44 px): minimum height of every control and week row, and the toast close button's size |
 | `--shadow-card` | Card elevation |
 | `--shadow-glass` | Glass card elevation (shadow plus top highlight) |
 | `--fade-size` | 2.5rem, width of the forecast's scroll-edge fade |
@@ -138,6 +144,7 @@ again; the floor is 4.5:1.
 | Details grid | `.details` | 8 tiles, plus Snowfall when snow is falling or expected today | value (`--text-md`, or `.detail-big` at `--text-lg` for single numbers), sub-line (`.detail-sub`), hidden rows, `--` for a missing value; no rule between the grid and the forecast (last-row lines clipped) |
 | Daylight bar | `.daylight-track`, `.daylight-fill` | one | shown while the sun is up, filled to the share of daylight gone (`--daylight`, 0–1); hidden before sunrise, after sunset and when times are missing |
 | Forecast card | `.forecast-card` | one | n/a |
+| Weekly forecast | `.week`, `.week-day` | one row per day, up to 7 from today | first row reads "Today"; rain/snow/storm days add a `.week-chance` ("60%") in `--color-chance` beside the icon; average falls back to the low–high midpoint; the range is a single `--` when either end is missing; without subgrid support rows fall back to fixed column widths; wind · UV line is empty when both are missing; "Weekly forecast unavailable." with no daily data; on narrow the wind · UV line wraps under the temperatures |
 | Forecast edge fade | `.forecast[data-fade-start]`, `[data-fade-end]` | one | start, middle, end of the scroll; absent when nothing overflows |
 | Toast | `.toast`, `#toast` | one | shown, dismissed (button or after 8 s); close button hover |
 | Footer | `footer` | one | credits and the animation switch; credits wrap under 36rem |
@@ -169,28 +176,37 @@ again; the floor is 4.5:1.
   text ("from SW").
 - **Hero high/low:** the "H:" and "L:" letters are `aria-hidden`, and visually
   hidden "High" / "Low" words stand in, so it reads "High 66°, Low 48°".
+- **Weekly forecast:** an `ol` labelled by its "7-day forecast" heading. The
+  icon and the low–high dash are `aria-hidden`; visually hidden words stand in,
+  so a row reads "Sun, Rain, 10% chance, Average 60°, low 50°, high 70°, Wind
+  15 mph · UV 5". Rows are 44 px tall and not focusable (nothing to act on).
 - **Daylight bar:** `aria-hidden`; the sub-line ("4 h 30 min of daylight left")
   carries the same information as text.
 
 ## Print
 
-`@media print` at the end of `dashboard.css` overrides the colour tokens to
-black on white and turns off blur and shadows, so the page prints the same in
-light and dark mode. The map, marker, search card, unit toggle, subtitle,
-toast, animation switch and **Try again** are hidden. The hero loses its
-gradient (day or night), because browsers skip backgrounds by default and its
-white text would vanish, and gets a top and bottom rule instead.
+`@media print` at the end of `dashboard.css` prints the result card as it looks
+on screen in the light theme, whatever the visitor's setting: the dark tokens
+sit in `@media screen and (prefers-color-scheme: dark)`, so dark-theme text
+never reaches paper. `print-color-adjust: exact` makes the browser print
+backgrounds, so the hero keeps its tone, condition and night gradient. If a
+printer drops backgrounds anyway, only the hero's white text is lost; the rest
+of the card stays dark on white. The map,
+marker, page title, search card, unit toggle, toast, animation switch and
+**Try again** are hidden. The credits stay, under the card.
 
-The goal is one quiet sheet that fits a single A4 or Letter page:
+The goal is one sheet that fits a single A4 or Letter page, every optional row
+shown:
 
 | Element | Print treatment |
 | --- | --- |
-| Page | `@page { margin: 15mm }`; root type at 87.5% |
-| Result card | No border, radius or shadow; the page margin is the frame |
-| Title | Indented `--space-5` to line up with the card content |
-| Hero | Smaller block padding (`--space-4`), temperature at 4rem |
-| Details | 4 fixed columns, no dividers |
-| Forecast | Even 6 × 2 grid; dividers between columns only (none at a row start) |
+| Page | `@page { margin: 10mm }`; root type at 80%; no page background, so the card sits on the paper |
+| Result card | As on screen, but solid (`--color-glass` is `--color-surface`, no blur or shadow) and edged with `--color-border`, since the glass edge vanishes on white paper |
+| Hero | As on screen |
+| Details | 5 fixed columns, so all 9 tiles take two rows |
+| Forecast | All 12 hours in one row, no edge fade |
+| Forecast labels | About 51 px wide; "Thunderstorm" carries a soft hyphen so it breaks as "Thunder-storm" |
+| Weekly forecast | As on screen; rows lose the 44 px minimum height (nothing to tap on paper) |
 
 ## Do and don't
 

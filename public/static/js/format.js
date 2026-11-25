@@ -49,7 +49,8 @@ const CONDITIONS = [
   [(code) => code >= 51 && code <= 57, "Drizzle", "🌦️", "rain"],
   [(code) => (code >= 61 && code <= 67) || (code >= 80 && code <= 82), "Rain", "🌧️", "rain"],
   [(code) => (code >= 71 && code <= 77) || (code >= 85 && code <= 86), "Snow", "🌨️", "snow"],
-  [(code) => code >= 95 && code <= 99, "Thunderstorm", "⛈️", "storm"],
+  // Soft hyphen: in a narrow card (print) it breaks as "Thunder-storm", not mid-word.
+  [(code) => code >= 95 && code <= 99, "Thunder\u00adstorm", "⛈️", "storm"],
 ];
 
 export const conditionForCode = (code) => {
@@ -65,6 +66,14 @@ export const formatHour = (timestamp, timeZone) => {
   return Number.isNaN(date.valueOf())
     ? "--"
     : date.toLocaleTimeString(undefined, { hour: "numeric", ...(timeZone ? { timeZone } : {}) });
+};
+
+// Short weekday ("Wed") of a daily timestamp, read in the place's own timezone.
+export const formatWeekday = (timestamp, timeZone) => {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : Number.NaN);
+  return Number.isNaN(date.valueOf())
+    ? "--"
+    : date.toLocaleDateString(undefined, { weekday: "short", ...(timeZone ? { timeZone } : {}) });
 };
 
 // Index of the hour that contains `now`. Open-Meteo's current time moves in
