@@ -71,6 +71,7 @@
   --shadow-glass: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1), inset 0 1px 0 var(--color-glass-edge);
 
   --color-night-shade: rgb(8 12 32 / 0.4); /* night hero, see #panel[data-daylight] */
+  --color-on-hero: #ffffff; /* hero text: white on every tone, light and dark */
 
   --color-marker: #1769aa;
   --color-marker-halo: rgb(23 105 170 / 0.22);
@@ -655,7 +656,7 @@ main {
   gap: var(--space-3) var(--space-5);
   padding: var(--space-5);
   overflow: hidden;
-  color: #fff;
+  color: var(--color-on-hero);
   background:
     radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.12), transparent 28%),
     linear-gradient(135deg, var(--tone-a), var(--tone-b));

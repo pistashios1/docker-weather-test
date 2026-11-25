@@ -46,6 +46,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--glass-blur` | `blur(4px) saturate(130%)` | same | Backdrop of every glass surface |
 | `--shadow-glass` | card shadow + 1 px top highlight | darker shadow, 14 % highlight | Glass card elevation |
 | `--color-night-shade` | navy `#080c20` at 40 % | same | Shade over the hero tone at night |
+| `--color-on-hero` | `#ffffff` | same | Hero text on every tone |
 | `--color-marker` / `--color-marker-halo` | `#1769aa` / 22 % blue | `#ffffff` / 18 % white | Location marker dot and ring |
 | `--marker-opacity` | 0.9 | 0.45 | Marker opacity (see "Glass and contrast") |
 

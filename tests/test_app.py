@@ -890,3 +890,22 @@ def test_provider_retries_ignore_retry_after():
     retry = _session().get_adapter("https://example.com").max_retries
     assert retry.total == 1
     assert retry.respect_retry_after_header is False
+
+
+def test_requirements_and_pyproject_pin_the_same_versions():
+    # Docker and CI install requirements.txt, Vercel reads pyproject.toml; Dependabot may bump only one.
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    requirements = [
+        line.strip()
+        for line in (root / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
+    def normalise(pins):
+        return {pin.lower().replace(" ", "") for pin in pins}
+
+    # requirements.txt may add server-only packages (gunicorn); shared ones must match exactly.
+    assert normalise(pyproject["project"]["dependencies"]) <= normalise(requirements)
