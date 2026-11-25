@@ -23,6 +23,7 @@ const $ = (selector) => document.querySelector(selector);
 const REQUEST_TIMEOUT_MS = 10000;
 const IP_LOOKUP_TIMEOUT_MS = 6000;
 const TOAST_MS = 8000;
+const WEATHER_STALE_MS = 10 * 60 * 1000;
 const LOCATION_CACHE_TTL_MS = 15 * 60 * 1000;
 const LOCATION_PROMPT_TIMEOUT_MS = 8000;
 const UNIT_STORAGE_KEY = "weather-units";
@@ -66,6 +67,7 @@ forecast.addEventListener(
 );
 
 let lastData = null; // Latest /weather payload (imperial units)
+let lastDataLoadedAt = 0; // Date.now() when lastData arrived
 let selectedLocation = null;
 let shownLocation = null; // The place lastData belongs to (selectedLocation can be newer)
 let activeRequest = null; // AbortController of the in-flight weather request
@@ -231,6 +233,7 @@ const loadWeather = async () => {
     const data = await fetchJson(`/weather?${query}`, controller.signal);
 
     lastData = data;
+    lastDataLoadedAt = Date.now();
     shownLocation = selectedLocation;
     render();
     mapMarker.setCoordinates(data.latitude, data.longitude);
@@ -521,6 +524,23 @@ locationButton.addEventListener("click", () => {
 
 retryButton.addEventListener("click", () => {
   if (!busy) loadWeather(); // Retry the place that failed.
+});
+
+// The page loads the weather once per place, so a tab left open (or restored
+// with Back) would keep showing an old reading. Reload it when the visitor returns.
+const refreshIfStale = () => {
+  if (
+    document.visibilityState === "visible" &&
+    lastData &&
+    !busy &&
+    Date.now() - lastDataLoadedAt > WEATHER_STALE_MS
+  ) {
+    loadWeather();
+  }
+};
+document.addEventListener("visibilitychange", refreshIfStale);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) refreshIfStale();
 });
 
 unitRadios.forEach((radio) => {

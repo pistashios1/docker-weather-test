@@ -133,3 +133,24 @@ test("after sunset it counts down to tomorrow's sunrise", async ({ page }) => {
 
   await expect(text(page, "daylight-left")).toHaveText("Sunrise in 11 h");
 });
+
+test("returning to the tab reloads the weather once it is over 10 minutes old", async ({ page }) => {
+  await page.clock.install({ time: at(12) });
+  await mockApi(page, { location: LONDON });
+  let weatherRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/weather") weatherRequests += 1;
+  });
+  await page.goto("/");
+  await expect(text(page, "location-name")).toHaveText("London, England");
+  const returnToTab = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+
+  await page.clock.runFor(5 * 60_000);
+  await returnToTab();
+  expect(weatherRequests).toBe(1); // Still fresh.
+
+  await page.clock.runFor(6 * 60_000);
+  await returnToTab();
+  await expect.poll(() => weatherRequests).toBe(2);
+  await expect(page.locator("#panel")).toHaveAttribute("data-state", "ready");
+});
