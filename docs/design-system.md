@@ -38,8 +38,9 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-on-primary` | `#ffffff` | `#08202f` | Text on primary |
 | `--color-danger` / `-bg` | `#b42318` / `#fef3f2` | `#ff9a8f` / `#3a1a17` | Error text and panel |
 | `--color-focus-ring` | 60 % `#1769aa` | 60 % `#82c3f5` | Every focus ring: 3 px outline |
-| `--color-map-line` | 12 % ink | 16 % ink | Background map outline |
-| `--color-glass` | white 54 % | `#18232e` 52 % | Cards, unit toggle, switch |
+| `--color-map-line` | 20 % ink | 16 % ink | Background map outline |
+| `--color-on-map` | `--color-text` | `--color-muted` | Text straight on the map (subtitle, credits); muted grey would fall to 3.9:1 over a light-mode map line |
+| `--color-glass` | white 45 % | `#18232e` 52 % | Cards, unit toggle, switch |
 | `--color-glass-strong` | white 97 % | `#18232e` 97 % | Toast |
 | `--color-glass-edge` | white 75 % | white 14 % | 1 px card edge and top highlight |
 | `--color-glass-sheen` | white 40 % | white 6 % | Diagonal sheen on the top-left of a card |
@@ -49,7 +50,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-night-shade` | navy `#080c20` at 40 % | same | Shade over the hero tone at night |
 | `--color-on-hero` | `#ffffff` | same | Hero text on every tone |
 | `--color-marker` / `--color-marker-halo` | `#1769aa` / 22 % blue | `#ffffff` / 18 % white | Location marker dot and ring |
-| `--marker-opacity` | 0.9 | 0.45 | Marker opacity (see "Glass and contrast") |
+| `--marker-opacity` | 0.4 | 0.45 | Marker opacity (see "Glass and contrast") |
 
 ### Hero palette
 
@@ -103,8 +104,22 @@ muted text), which is why it is dimmer in dark mode.
 
 | Mode | Lowest text contrast measured | Limiting element |
 | --- | --- | --- |
-| Light | 4.6:1 | Subtitle on the bare page (a map line passes behind it) |
-| Dark | 4.8:1 | Location line on glass with the marker behind it |
+| Light | 5.4:1 | Week wind · UV line on glass |
+| Dark | 5.4:1 | Week wind · UV line on glass |
+
+Light mode used to be the faint one: 12 % map lines under 54 % white glass
+showed through at 1.11:1, against 1.23:1 in dark mode, and its marker was at
+0.9 opacity. The lines are now 20 % ink and the glass 45 % white, so the map
+shows through at 1.23:1 in both themes, and the marker is dimmed to 0.4. The
+light subtitle and credits moved to `--color-on-map` (body text colour),
+because muted grey over a 20 % line is only 3.9:1.
+
+These figures come from a one-off Playwright probe: text hidden, 7 marker
+latitudes × 30 map positions, at 1100 px wide. It samples less densely than
+the original probe (on the old light values it found 5.0:1, not 4.6:1), so
+the worst cases were also worked out without the blur, which is harsher than
+the real page: grey text over the marker is 4.5:1 in light mode (was 3.4:1)
+and 3.7:1 in dark mode (dark measured 4.8:1 with the blur).
 
 `--color-chance` was not run through the probe. It was worked out from the
 worst backgrounds above: about 5.4:1 in light mode and 5.6:1 in dark mode.

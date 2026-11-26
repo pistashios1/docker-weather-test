@@ -60,12 +60,15 @@
   /* Rain/snow chance text. The hover blue is the darker one in light mode and
      the lighter one in dark mode, so it clears 4.5:1 on glass in both. */
   --color-chance: var(--color-primary-hover);
-  --color-map-line: rgb(23 33 43 / 0.12);
+  --color-map-line: rgb(23 33 43 / 0.2);
+  /* Text straight on the map (subtitle, credits). Muted grey would fall to
+     3.9:1 over a light-mode map line, so light mode uses the body colour. */
+  --color-on-map: var(--color-text);
   --shadow-card: 0 0.25rem 1.25rem rgb(23 33 43 / 0.1);
 
   /* Glass: slightly translucent surfaces so the map shows through (Aero-style,
      kept subtle). Text on glass is measured against the worst case behind it. */
-  --color-glass: rgb(255 255 255 / 0.54);
+  --color-glass: rgb(255 255 255 / 0.45);
   --color-glass-strong: rgb(255 255 255 / 0.97); /* toast: nearly opaque */
   --color-glass-edge: rgb(255 255 255 / 0.75);
   --color-glass-sheen: rgb(255 255 255 / 0.4);
@@ -78,7 +81,9 @@
 
   --color-marker: #1769aa;
   --color-marker-halo: rgb(23 105 170 / 0.22);
-  --marker-opacity: 0.9;
+  /* Dimmed so the blue dot doesn't glare through the glass or drop text
+     over it below 4.5:1, as in dark mode. */
+  --marker-opacity: 0.4;
 
   --fade-size: 2.5rem; /* width of the scroll-edge fade on the forecast */
 
@@ -124,6 +129,7 @@
     --color-danger-bg: #3a1a17;
     --color-focus-ring: rgb(130 195 245 / 0.6);
     --color-map-line: rgb(232 238 243 / 0.16);
+    --color-on-map: var(--color-muted);
     --shadow-card: 0 0.25rem 1.25rem rgb(0 0 0 / 0.4);
     --color-glass: rgb(24 35 46 / 0.52);
     --color-glass-strong: rgb(24 35 46 / 0.97);
@@ -242,7 +248,7 @@ main {
 
 .subtitle {
   margin: var(--space-1) 0 0;
-  color: var(--color-muted);
+  color: var(--color-on-map);
 }
 
 @media (max-width: 35.99rem) {
@@ -1061,7 +1067,7 @@ footer {
   margin: 0 auto;
   padding: 0 var(--space-4) var(--space-6);
   font-size: var(--text-sm);
-  color: var(--color-muted);
+  color: var(--color-on-map);
   text-align: center;
 }
 
