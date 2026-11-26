@@ -40,10 +40,11 @@ Defined as CSS custom properties at the top of `dashboard.css`. Use tokens, not 
 | `--color-danger` | #b42318 | #ff9a8f | Errors |
 | `--color-focus-ring` | #1769aa at 60% | #82c3f5 at 60% | Every focus ring (3px outline) |
 | `--color-night-shade` | #080c20 at 40% | same | Shade over the hero at night |
-| `--color-map-line` | 12% ink | 16% light | Background map lines |
-| `--color-glass` | white 54% | #18232e 52% | Cards and small controls (frosted, 4px blur) |
+| `--color-map-line` | 20% ink | 16% light | Background map lines |
+| `--color-on-map` | `--color-text` | `--color-muted` | Text straight on the map: subtitle, credits |
+| `--color-glass` | white 45% | #18232e 52% | Cards and small controls (frosted, 4px blur) |
 | `--color-glass-strong` | white 97% | #18232e 97% | Toast (the search menu is opaque `--color-surface`) |
-| `--color-marker` | #1769aa | #ffffff | Location marker (opacity 0.9 / 0.45) |
+| `--color-marker` | #1769aa | #ffffff | Location marker (opacity 0.4 / 0.45) |
 | `--space-1` to `--space-6` | 0.25, 0.5, 0.75, 1, 1.5, 2.5 rem | | Spacing scale |
 | `--radius-sm`, `-md`, `-pill` | 0.4rem, 0.75rem, 999px | | Radii. Buttons and toggles are pills. |
 | `--motion-fast`, `--motion-base` | 150ms, 250ms | | Transitions |
@@ -288,7 +289,7 @@ focus ring is drawn around the whole forecast section.
 - Focus order: unit toggle, search field, **Search**, **Use my location**, then (when shown) **Try again**, then the background switch.
 - Focus is always visible: a 3px outline in `--color-focus-ring`, on every control and search option.
 - All interactive controls are at least 44px tall (WCAG 2.5.5).
-- Contrast: text meets 4.5:1 everywhere measured, including muted text over the faintest map line (4.6:1 light, 5.2:1 dark). Control borders are 3:1 or better.
+- Contrast: text meets 4.5:1 everywhere measured, including text over the map lines and the marker (lowest measured 5.4:1 in both themes; text straight on the map uses `--color-on-map`). Control borders are 3:1 or better.
 - The map is `aria-hidden`, cannot be focused or clicked, and can be paused (WCAG 2.2.2).
 - Status messages go through one polite live region; errors use `role="alert"`. Nothing is announced twice.
 - Automated check: axe-core (WCAG 2.0, 2.1 A and AA, plus best practices) reports zero violations in light and dark, with the popup closed and open. Contrast over the map and gradients cannot be computed by axe, so it was measured by hand. It has not been tested with a screen reader.
