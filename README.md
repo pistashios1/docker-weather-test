@@ -487,6 +487,7 @@ ruff check .                          # lint
 node --test "tests/js/*.test.mjs"     # unit tests for the ES modules, no dependencies
 cd tests/e2e && npm ci && npx playwright install chromium
 npx playwright test                   # map, location, weather details and print tests; providers are mocked
+CONTRAST=1 npx playwright test contrast   # slow contrast probe over the map (PowerShell: $env:CONTRAST = "1")
 ```
 
 The browser tests start the app with `.venv`'s Python when that folder exists,

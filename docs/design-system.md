@@ -32,7 +32,7 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-text` | `#17212b` | `#e8eef3` | Body text |
 | `--color-muted` | `#52606d` | `#9fb0bf` | Secondary text |
 | `--color-border` | `#c4d1db` | `#2e3f4e` | Decorative dividers only |
-| `--color-border-strong` | `#7a8995` | `#6b7f90` | Control boundaries (3:1) |
+| `--color-border-strong` | `#64717c` | `#7d91a2` | Control boundaries (3:1, also against the map over land) |
 | `--color-primary` / `-hover` | `#1769aa` / `#12578f` | `#5eb1f0` / `#82c3f5` | Buttons, selection, focus |
 | `--color-chance` | `#12578f` | `#82c3f5` | Rain/snow chance in the weekly forecast (it aliases `--color-primary-hover`) |
 | `--color-on-primary` | `#ffffff` | `#08202f` | Text on primary |
@@ -51,6 +51,8 @@ automatic (`prefers-color-scheme`), and every token below has a dark value.
 | `--color-on-hero` | `#ffffff` | same | Hero text on every tone |
 | `--color-marker` / `--color-marker-halo` | `#1769aa` / 22 % blue | `#ffffff` / 18 % white | Location marker dot and ring |
 | `--marker-opacity` | 0.4 | 0.45 | Marker opacity (see "Glass and contrast") |
+| `--halo-text` | 1, 2 and 4 px glow in `--color-bg` | same | Behind text straight on the map (subtitle, credits); none in print |
+| `--halo-ring` | 2 px ring in `--color-bg` | same | Around controls straight on the map (unit toggle, map switch); none in print |
 
 ### Hero palette
 
@@ -96,16 +98,32 @@ the `h1` only.
 
 ### Glass and contrast
 
-Text on glass is measured against the worst case behind it, not against the
-page colour. The probe hides every glyph, captures what is behind each text
-element at 100 positions of the scrolling map, and takes the lowest contrast
-against the text token. The marker is the worst offender (a bright dot behind
-muted text), which is why it is dimmer in dark mode.
+Text and control borders are measured against what is really behind them, not
+against the page colour. The probe, `tests/e2e/contrast.spec.mjs`, makes the
+glyphs transparent (their halo stays), captures the page at 7 marker latitudes
+× 30 map positions, and takes the lowest contrast under any glyph pixel. For
+borders it reads the pixel rows just outside and just inside each control's
+edge. It runs with the map band in the middle of the page and moved onto the
+header and the footer, in both themes. It is slow (about 5 minutes), so it only
+runs on request:
 
-| Mode | Lowest text contrast measured | Limiting element |
-| --- | --- | --- |
-| Light | 5.4:1 | Week wind · UV line on glass |
-| Dark | 5.4:1 | Week wind · UV line on glass |
+```bash
+cd tests/e2e && CONTRAST=1 npx playwright test contrast    # PowerShell: $env:CONTRAST = "1"
+```
+
+| Mode | Lowest text | Lowest control border | Limiting element |
+| --- | --- | --- | --- |
+| Light | 5.4:1 | 4.2:1 | Week wind · UV line on glass; map switch over the marker |
+| Dark | 5.3:1 | 3.4:1 | Week wind · UV line on glass; map switch over the marker |
+
+Text and controls drawn straight on the map (subtitle, credits, unit toggle,
+map switch) have nothing between them and the marker. Before the halos, the
+dark marker behind them dropped the subtitle to 1.8:1 and the toggle border to
+1.0:1. They now sit on a page-colour halo: `--halo-text` behind the text and a
+2 px `--halo-ring` around the two controls. The light `--color-border-strong`
+went from #7a8995 to #64717c, which clears 3:1 against the 20 % map line, and
+the dark one from #6b7f90 to #7d91a2, because the white marker behind the glass
+brightens it toward the old grey (2.7:1).
 
 Light mode used to be the faint one: 12 % map lines under 54 % white glass
 showed through at 1.11:1, against 1.23:1 in dark mode, and its marker was at
@@ -114,20 +132,9 @@ shows through at 1.23:1 in both themes, and the marker is dimmed to 0.4. The
 light subtitle and credits moved to `--color-on-map` (body text colour),
 because muted grey over a 20 % line is only 3.9:1.
 
-These figures come from a one-off Playwright probe: text hidden, 7 marker
-latitudes × 30 map positions, at 1100 px wide. It samples less densely than
-the original probe (on the old light values it found 5.0:1, not 4.6:1), so
-the worst cases were also worked out without the blur, which is harsher than
-the real page: grey text over the marker is 4.5:1 in light mode (was 3.4:1)
-and 3.7:1 in dark mode (dark measured 4.8:1 with the blur).
-
-`--color-chance` was not run through the probe. It was worked out from the
-worst backgrounds above: about 5.4:1 in light mode and 5.6:1 in dark mode.
-Plain `--color-primary` would be about 4.1:1 in light mode, below the floor.
-
-Before this change the dark-mode figure with a full-strength marker was 3.0:1.
-If you change `--color-glass`, `--glass-blur` or `--marker-opacity`, measure
-again; the floor is 4.5:1.
+If you change `--color-glass`, `--glass-blur`, `--marker-opacity`,
+`--color-map-line`, `--color-border-strong` or the halos, run the probe again;
+the floor is 4.5:1 for text and 3:1 for control borders.
 
 ### Spacing, shape, motion
 
