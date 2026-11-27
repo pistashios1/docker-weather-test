@@ -55,6 +55,7 @@ cd tests/e2e && npx playwright install chromium   # first run or after a Playwri
 - E2E `mockApi(page, { location, weather })` mocks the app's own `/weather`, `/search` and `/location` routes, not the providers. `/reverse-location` is not mocked.
 - Time: `page.clock.setFixedTime` freezes it. Anything that ticks needs `page.clock.install` plus `runFor`.
 - `print.spec.mjs` asserts one A4 page and one Letter page. Re-run it after any layout change.
+- `contrast.spec.mjs` only runs with `CONTRAST=1` (about 5 minutes). Re-run it after changing glass, map, marker, border or halo tokens.
 
 ## Workflow and design
 
